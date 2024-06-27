@@ -414,7 +414,7 @@ fig_tib_ears
   (fig_tib_ears) +
   plot_annotation(title = "",
                   caption = "", tag_levels = 'A')
-ggsave("SupplementalFig2.tiff", width = 7, height = 8)
+ggsave("SupplementalFig2.jpeg", width = 7, height = 8)
 
 ###########################
 # Onset
@@ -503,7 +503,7 @@ fig_dur_ears
   (fig_dur_ears) +
   plot_annotation(title = "",
                   caption = "", tag_levels = 'A')
-ggsave("SupplementalFig4.tiff", width = 7, height = 8)
+ggsave("SupplementalFig4.jpeg", width = 7, height = 8)
 ```
 
 ### Actilife & EARS
@@ -594,7 +594,7 @@ fig_tib_ears_act
   (fig_tib_ears_act) +
   plot_annotation(title = "",
                   caption = "", tag_levels = 'A')
-ggsave("SupplementalFig3.tiff", width = 7, height = 8)
+ggsave("SupplementalFig3.jpeg", width = 7, height = 8)
 ```
 
 # Comparing average bedtimes, rise times, and time in bed among sources
@@ -828,7 +828,7 @@ df_analysis4_RemOut %>%
   theme(axis.text.y = element_text(size = 12))  +
   geom_vline(aes(xintercept = 10.65028), colour = "#CC79A7", linetype = "solid", linewidth = .5) +
   theme(legend.direction = c("vertical"))
-ggsave("Figure1.tiff")
+ggsave("Figure1.jpeg")
 
 
 ## Average timestamps
@@ -1077,7 +1077,7 @@ da_corr_dur <-
 (de_corr_onset + de_corr_offset + de_corr_dur) /
   (ae_corr_onset + ae_corr_offset + ae_corr_dur) +
   plot_annotation(title = 'Intersource Correlations', tag_levels = 'A')
-ggsave("Figure2.tiff", width = 14, height = 8)
+ggsave("Figure2.jpeg", width = 14, height = 8)
 
 #######################
 
@@ -1155,7 +1155,7 @@ de_corr_dur_supp <-
 
 (de_corr_onset_supp + de_corr_offset_supp + de_corr_dur_supp) +
   plot_annotation(title = 'Intersource Correlations', tag_levels = 'A')
-ggsave("SupplementalFig6.tiff", width = 14, height = 4)
+ggsave("SupplementalFig6.jpeg", width = 14, height = 4)
 
 ```
 
@@ -1231,7 +1231,7 @@ ears_spec_sens %>% # specificty and sensitivity are against the diary data (this
     y = "Sensitivity (TPR)",
     title = "EARS ROC"
   )
-ggsave("Figure3.tiff", width = 6, height = 6)
+ggsave("Figure3.jpeg", width = 6, height = 6)
 
 mode(1 - ears_spec_sens$ears.diary_bed_specificity)
 mode(ears_spec_sens$ears.diary_bed_sensitivity)
@@ -1378,7 +1378,7 @@ df_analysis4_RemOut %>%
         facet_wrap) +
   scale_color_manual(values = c("#E69F00", "#56B4E9", "#999999"), labels = c('Diary','EARS','ActiGraph')) +
   scale_x_continuous(breaks = seq(-10,24, by = 6), labels = c("14", "20", "2", "8", "14", "20"))
-ggsave("SupplementalFig5.tiff", width = 7, height = 9)
+ggsave("SupplementalFig5.jpeg", width = 7, height = 9)
 
 
 ```

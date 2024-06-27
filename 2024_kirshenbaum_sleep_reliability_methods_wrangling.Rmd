@@ -2779,7 +2779,7 @@ sd <- sd(df_analysis_wide3_RemOut$risetime_start_offset_minutes_ears, na.rm = TR
     caption = "",
     tag_levels = 'A'
   )
-ggsave(filename = "SupplementalFig1.tiff", width = 12, height = 12)
+ggsave(filename = "SupplementalFig1.jpeg", width = 12, height = 12)
 ```
 
 ## Number of Days per Person
