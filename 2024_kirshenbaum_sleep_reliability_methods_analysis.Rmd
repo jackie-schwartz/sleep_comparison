@@ -71,7 +71,7 @@ knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
 
 ## Participants
 From my analysis:
-29 University students provided smartphone accelerometer and self-reported diary data for one week. 18 participants provided actigraphy data and one participant was excluded for having only one day of data, leaving 17 participants with at least 5 days of data.
+29 University students provided smartphone accelerometer and self-reported diary data for one week. 13 participants provided concurrent actigraphy data
 ## Procedure
 The current study analyzed data from the baseline week of a 4-week micro-randomized trial, as described in (Latham, 2020). At the consent session, the Effortless Assessment of Research Systems (EARS) phone application was installed on participants’ phones. The EARS app was developed by the Adolescent Development and Psychopathology Team (ADAPT) at the University of Oregon to passively collect data with minimal burden to participants (Lind et al., 2018).
 ## Data analysis
