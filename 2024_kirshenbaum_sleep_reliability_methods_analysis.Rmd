@@ -7,7 +7,7 @@ author:
   address: 1051 Riverside Drive, 3511 Pardes New York, NY 10032
   email: Jaclyn.Kirshenbaum@nyspi.columbia.edu
   role:
-  - Analysis
+  - "Analysis"
   - "Writing - Original Draft Preparation"
   - "Writing - Review & Editing"
 - name: Ryann Crowley
@@ -71,7 +71,7 @@ knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
 
 ## Participants
 From my analysis:
-29 University students provided smartphone accelerometer, wearable, and self-reported diary data for one week. 18 participants provided actigraphy data and one participant was excluded for having only one day of data, leaving 17 participants with at least 5 days of data.
+29 University students provided smartphone accelerometer and self-reported diary data for one week. 18 participants provided actigraphy data and one participant was excluded for having only one day of data, leaving 17 participants with at least 5 days of data.
 ## Procedure
 The current study analyzed data from the baseline week of a 4-week micro-randomized trial, as described in (Latham, 2020). At the consent session, the Effortless Assessment of Research Systems (EARS) phone application was installed on participants’ phones. The EARS app was developed by the Adolescent Development and Psychopathology Team (ADAPT) at the University of Oregon to passively collect data with minimal burden to participants (Lind et al., 2018).
 ## Data analysis
@@ -111,6 +111,11 @@ ICClme <- function(out) {
   return(paste("ICC =", varests[1] / sum(varests)))
 }
 
+mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
 theme_set(theme_bw(base_size = 12,base_family = "Arial")); theme_update(panel.grid.minor = element_line(linetype = "solid",linewidth =.5),axis.title.x = element_text(face = "bold"),axis.title.y = element_text(face = "bold"), plot.title = element_text(face = "bold"))
 ```
 
@@ -118,7 +123,7 @@ theme_set(theme_bw(base_size = 12,base_family = "Arial")); theme_update(panel.gr
 # Reading in files
 
 ```{r}
-load("reliability_May132024.Rda")
+load("reliability_June272024.Rda")
 ## Reading in files
 
 df_sleep_actilife_path  <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/BatchSleepExportDetails(2020-03-03_14-13-01).csv"
@@ -147,7 +152,7 @@ df_analysis4 %>%
        fill = "",
        caption = "") +
   theme(legend.position = "none")
-ggsave("number_observations_per_day_per_source.png")
+
 
 # Observations per Source (RemOut)
 df_analysis4_RemOut %>% 
@@ -162,7 +167,6 @@ df_analysis4_RemOut %>%
        fill = "",
        caption = "") +
   theme(legend.position = "none")
-ggsave("number_observations_per_day_per_source_RemOut.png")
 
 source_nums <-
   df_analysis4 %>%
@@ -193,7 +197,7 @@ df_analysis4 %>%
        fill = "",
        caption = "") +
   theme(legend.position = "none")
-ggsave("number_observations_per_day_per_source_combination.png", height = 5, width = 5)
+
 
 df_analysis4_RemOut %>% 
   drop_na(source_combination) %>% # droping the two participants with *only* diary data
@@ -208,7 +212,7 @@ df_analysis4_RemOut %>%
        fill = "",
        caption = "") +
   theme(legend.position = "none")
-ggsave("number_observations_per_day_per_source_combination_RemOut.png", height = 5, width = 5)
+
 
 source_nums_comb_RemOut <- 
   df_analysis4_RemOut %>%
@@ -245,32 +249,6 @@ df_analysis_wide3_RemOut %>%
 
 > Only using the "RemOut" dataframes moving forward removing the observations with Diary-only data
 
-# Descriptives
-
-## Summary of participant numbers
-
-```{r}
-df_analysis3_sum <-
-  df_analysis_wide3_RemOut %>%
-  dplyr::group_by(actilife_id, sample_data_available) %>%
-  dplyr::summarise(
-    n = n()
-  ) %>%
-  distinct() %>%
-  dplyr::ungroup() %>%
-  dplyr::group_by(sample_data_available) %>%
-  dplyr::summarise(
-    n = n()
-  ) %>%
-  dplyr::rename("Source" = sample_data_available)
-# Same number of participants with and without outliers - and then there were two participants removed due to just having diary data, so reduced N to 32
-
-
-```
-
-> Considering the sources of data together, `r df_analysis3_sum$n[1]` participants have Diary & ActiGraph data, `r df_analysis3_sum$n[2]` participants have Diary & EARS data, `r df_analysis3_sum$n[3]` participants have Diary, EARS, and ActiGraph data.
-
-
 ## Summary of Bedtime, Rise Time, and Time in Bed
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, attr.output=FALSE}
@@ -279,37 +257,53 @@ table_descriptives_RemOut <-
   df_analysis_wide3_RemOut %>%
   dplyr::ungroup() %>%
   dplyr::summarise(
-    Sleep_Onset_Mean_Minutes_from_Midnight_EARS = round(mean(sleep_period_start_onset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Onset_Med_Minutes_from_Midnight_EARS = round(median(sleep_period_start_onset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Onset_SD_Minutes_from_Midnight_EARS = round(sd(sleep_period_start_onset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Onset_Min_Minutes_from_Midnight_EARS = round(min(sleep_period_start_onset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Onset_Max_Minutes_from_Midnight_EARS = round(max(sleep_period_start_onset_minutes_ears, na.rm = TRUE),2),  
-    Sleep_Offset_Mean_Minutes_from_Midnight_EARS = round(mean(sleep_period_start_offset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Offset_Med_Minutes_from_Midnight_EARS = round(median(sleep_period_start_offset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Offset_SD_Minutes_from_Midnight_EARS = round(sd(sleep_period_start_offset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Offset_Min_Minutes_from_Midnight_EARS = round(min(sleep_period_start_offset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Offset_Max_Minutes_from_Midnight_EARS = round(max(sleep_period_start_offset_minutes_ears, na.rm = TRUE),2),
-    Sleep_Duration_Mean_Minutes_EARS = round(mean(sleep_duration_minutes_ears, na.rm = TRUE),2),
-    Sleep_Duration_Med_Minutes_EARS = round(median(sleep_duration_minutes_ears, na.rm = TRUE),2),
-    Sleep_Duration_SD_Minutes_EARS = round(sd(sleep_duration_minutes_ears, na.rm = TRUE),2),
-    Sleep_Duration_Min_Minutes_EARS = round(min(sleep_duration_minutes_ears, na.rm = TRUE),2),
-    Sleep_Duration_Max_Minutes_EARS = round(max(sleep_duration_minutes_ears, na.rm = TRUE),2),
+    Bedtime_Mean_Minutes_from_Midnight_EARS = round(mean(bedtime_start_onset_minutes_ears, na.rm = TRUE),2),
+    Bedtime_Med_Minutes_from_Midnight_EARS = round(median(bedtime_start_onset_minutes_ears, na.rm = TRUE),2),
+    Bedtime_SD_Minutes_from_Midnight_EARS = round(sd(bedtime_start_onset_minutes_ears, na.rm = TRUE),2),
+    Bedtime_Min_Minutes_from_Midnight_EARS = round(min(bedtime_start_onset_minutes_ears, na.rm = TRUE),2),
+    Bedtime_Max_Minutes_from_Midnight_EARS = round(max(bedtime_start_onset_minutes_ears, na.rm = TRUE),2),  
+    Risetime_Mean_Minutes_from_Midnight_EARS = round(mean(risetime_start_offset_minutes_ears, na.rm = TRUE),2),
+    Risetime_Med_Minutes_from_Midnight_EARS = round(median(risetime_start_offset_minutes_ears, na.rm = TRUE),2),
+    Risetime_SD_Minutes_from_Midnight_EARS = round(sd(risetime_start_offset_minutes_ears, na.rm = TRUE),2),
+    Risetime_Min_Minutes_from_Midnight_EARS = round(min(risetime_start_offset_minutes_ears, na.rm = TRUE),2),
+    Risetime_Max_Minutes_from_Midnight_EARS = round(max(risetime_start_offset_minutes_ears, na.rm = TRUE),2),
+    TIB_Mean_Minutes_EARS = round(mean(time_in_bed_minutes_ears, na.rm = TRUE),2),
+    TIB_Med_Minutes_EARS = round(median(time_in_bed_minutes_ears, na.rm = TRUE),2),
+    TIB_SD_Minutes_EARS = round(sd(time_in_bed_minutes_ears, na.rm = TRUE),2),
+    TIB_Min_Minutes_EARS = round(min(time_in_bed_minutes_ears, na.rm = TRUE),2),
+    TIB_Max_Minutes_EARS = round(max(time_in_bed_minutes_ears, na.rm = TRUE),2),
     
-    Sleep_Onset_Mean_Minutes_from_Midnight_ACT = round(mean(sleep_period_start_onset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Onset_Med_Minutes_from_Midnight_ACT = round(median(sleep_period_start_onset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Onset_SD_Minutes_from_Midnight_ACT = round(sd(sleep_period_start_onset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Onset_Min_Minutes_from_Midnight_ACT = round(min(sleep_period_start_onset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Onset_Max_Minutes_from_Midnight_ACT = round(max(sleep_period_start_onset_minutes_actilife, na.rm = TRUE),2),  
-    Sleep_Offset_Mean_Minutes_from_Midnight_ACT = round(mean(sleep_period_start_offset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Offset_Med_Minutes_from_Midnight_ACT = round(median(sleep_period_start_offset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Offset_SD_Minutes_from_Midnight_ACT = round(sd(sleep_period_start_offset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Offset_Min_Minutes_from_Midnight_ACT = round(min(sleep_period_start_offset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Offset_Max_Minutes_from_Midnight_ACT = round(max(sleep_period_start_offset_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Duration_Mean_Minutes_ACT = round(mean(sleep_duration_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Duration_Med_Minutes_ACT = round(median(sleep_duration_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Duration_SD_Minutes_ACT = round(sd(sleep_duration_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Duration_Min_Minutes_ACT = round(min(sleep_duration_minutes_actilife, na.rm = TRUE),2),
-    Sleep_Duration_Max_Minutes_ACT = round(max(sleep_duration_minutes_actilife, na.rm = TRUE),2),
+    Bedtime_Mean_Minutes_from_Midnight_ACT = round(mean(bedtime_start_onset_minutes_actilife, na.rm = TRUE),2),
+    Bedtime_Med_Minutes_from_Midnight_ACT = round(median(bedtime_start_onset_minutes_actilife, na.rm = TRUE),2),
+    Bedtime_SD_Minutes_from_Midnight_ACT = round(sd(bedtime_start_onset_minutes_actilife, na.rm = TRUE),2),
+    Bedtime_Min_Minutes_from_Midnight_ACT = round(min(bedtime_start_onset_minutes_actilife, na.rm = TRUE),2),
+    Bedtime_Max_Minutes_from_Midnight_ACT = round(max(bedtime_start_onset_minutes_actilife, na.rm = TRUE),2),  
+    Risetime_Mean_Minutes_from_Midnight_ACT = round(mean(risetime_start_offset_minutes_actilife, na.rm = TRUE),2),
+    Risetime_Med_Minutes_from_Midnight_ACT = round(median(risetime_start_offset_minutes_actilife, na.rm = TRUE),2),
+    Risetime_SD_Minutes_from_Midnight_ACT = round(sd(risetime_start_offset_minutes_actilife, na.rm = TRUE),2),
+    Risetime_Min_Minutes_from_Midnight_ACT = round(min(risetime_start_offset_minutes_actilife, na.rm = TRUE),2),
+    Risetime_Max_Minutes_from_Midnight_ACT = round(max(risetime_start_offset_minutes_actilife, na.rm = TRUE),2),
+    TIB_Mean_Minutes_ACT = round(mean(time_in_bed_minutes_actilife, na.rm = TRUE),2),
+    TIB_Med_Minutes_ACT = round(median(time_in_bed_minutes_actilife, na.rm = TRUE),2),
+    TIB_SD_Minutes_ACT = round(sd(time_in_bed_minutes_actilife, na.rm = TRUE),2),
+    TIB_Min_Minutes_ACT = round(min(time_in_bed_minutes_actilife, na.rm = TRUE),2),
+    TIB_Max_Minutes_ACT = round(max(time_in_bed_minutes_actilife, na.rm = TRUE),2),
+    
+    Bedtime_Mean_Minutes_from_Midnight_DIARY = round(mean(bedtime_start_onset_minutes_diary, na.rm = TRUE),2),
+    Bedtime_Med_Minutes_from_Midnight_DIARY = round(median(bedtime_start_onset_minutes_diary, na.rm = TRUE),2),
+    Bedtime_SD_Minutes_from_Midnight_DIARY = round(sd(bedtime_start_onset_minutes_diary, na.rm = TRUE),2),
+    Bedtime_Min_Minutes_from_Midnight_DIARY = round(min(bedtime_start_onset_minutes_diary, na.rm = TRUE),2),
+    Bedtime_Max_Minutes_from_Midnight_DIARY = round(max(bedtime_start_onset_minutes_diary, na.rm = TRUE),2),  
+    Risetime_Mean_Minutes_from_Midnight_DIARY = round(mean(risetime_start_offset_minutes_diary, na.rm = TRUE),2),
+    Risetime_Med_Minutes_from_Midnight_DIARY = round(median(risetime_start_offset_minutes_diary, na.rm = TRUE),2),
+    Risetime_SD_Minutes_from_Midnight_DIARY = round(sd(risetime_start_offset_minutes_diary, na.rm = TRUE),2),
+    Risetime_Min_Minutes_from_Midnight_DIARY = round(min(risetime_start_offset_minutes_diary, na.rm = TRUE),2),
+    Risetime_Max_Minutes_from_Midnight_DIARY = round(max(risetime_start_offset_minutes_diary, na.rm = TRUE),2),
+    TIB_Mean_Minutes_DIARY = round(mean(time_in_bed_minutes_diary, na.rm = TRUE),2),
+    TIB_Med_Minutes_DIARY = round(median(time_in_bed_minutes_diary, na.rm = TRUE),2),
+    TIB_SD_Minutes_DIARY = round(sd(time_in_bed_minutes_diary, na.rm = TRUE),2),
+    TIB_Min_Minutes_DIARY = round(min(time_in_bed_minutes_diary, na.rm = TRUE),2),
+    TIB_Max_Minutes_DIARY = round(max(time_in_bed_minutes_diary, na.rm = TRUE),2),
     
     Sleep_Onset_Mean_Minutes_from_Midnight_DIARY = round(mean(sleep_period_start_onset_minutes_diary, na.rm = TRUE),2),
     Sleep_Onset_Med_Minutes_from_Midnight_DIARY = round(median(sleep_period_start_onset_minutes_diary, na.rm = TRUE),2),
@@ -325,38 +319,125 @@ table_descriptives_RemOut <-
     Sleep_Duration_Med_Minutes_DIARY = round(median(sleep_duration_minutes_diary, na.rm = TRUE),2),
     Sleep_Duration_SD_Minutes_DIARY = round(sd(sleep_duration_minutes_diary, na.rm = TRUE),2),
     Sleep_Duration_Min_Minutes_DIARY = round(min(sleep_duration_minutes_diary, na.rm = TRUE),2),
-    Sleep_Duration_Max_Minutes_DIARY = round(max(sleep_duration_minutes_diary, na.rm = TRUE),2)
+    Sleep_Duration_Max_Minutes_DIARY = round(max(sleep_duration_minutes_diary, na.rm = TRUE),2)    
     )
-write.csv(table_descriptives_RemOut, "sleep_descriptives.csv")
+
 ```
 
 #### Supplement: Distributions ####
 
 ### Diary & EARS
 ```{r, echo=FALSE}
-# Onset
-sleep_onset_diff_min_diary_ears <- 
+# Bedtime
+bedtime_diff_min_diary_ears_df <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>% 
   dplyr::group_by(actilife_id) %>% 
   dplyr::summarise(
-    sleep_onset_diff_min_diary_ears_mean = mean(sleep_onset_diff_min_diary_ears)
+    bedtime_diff_min_diary_ears_mean = mean(bedtime_diff_min_diary_ears)
     )
-mean(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm=TRUE)
-sd(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm=TRUE)
+mean(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm=TRUE)
+
+fig_bedtime_ears <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  ggplot() +
+  geom_density(aes(bedtime_diff_min_diary_ears), col = "black") +
+  geom_vline(data = bedtime_diff_min_diary_ears_df, aes(xintercept=bedtime_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(bedtime_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(bedtime_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(bedtime_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.008)) +
+  labs(title = "Diary Bedtime - EARS Bedtime",
+       x = "Difference in Bedtime (minutes)",
+       y = "",
+       color = "") +
+  theme_classic()  +
+  theme(legend.position="none")
+fig_bedtime_ears
+
+# Risetime
+risetime_diff_min_diary_ears_df <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    risetime_diff_min_diary_ears_mean = mean(risetime_diff_min_diary_ears)
+    )
+mean(df_analysis_wide3_RemOut$risetime_diff_min_diary_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$risetime_diff_min_diary_ears, na.rm=TRUE)
+
+fig_risetime_ears <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  ggplot() +
+  geom_density(aes(risetime_diff_min_diary_ears), col = "black") +
+  geom_vline(data = risetime_diff_min_diary_ears_df, aes(xintercept=risetime_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(risetime_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(risetime_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(risetime_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.008)) +
+  labs(title = "Diary Rise Time - EARS Rise Time",
+       x = "Difference in Rise Time (minutes)",
+       y = "") +
+  theme_classic()  +
+  theme(legend.position="none")
+fig_risetime_ears
+
+
+# Time in Bed
+tib_diff_min_diary_ears_df <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    time_in_bed_minutes_diff_min_diary_ears_mean = mean(time_in_bed_minutes_diff_min_diary_ears)
+    )
+mean(df_analysis_wide3_RemOut$time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE)
+
+fig_tib_ears <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  ggplot() +
+  geom_density(aes(time_in_bed_minutes_diff_min_diary_ears), col = "black") +
+  geom_vline(data = tib_diff_min_diary_ears_df, aes(xintercept=time_in_bed_minutes_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.004)) +
+  labs(title = "Diary Time in Bed - EARS Time in Bed",
+       x = "Difference in Time in Bed (minutes)",
+       y = "") +
+  theme_classic()  +
+  theme(legend.position="none")
+fig_tib_ears
+
+
+(fig_bedtime_ears ) /
+  (fig_risetime_ears) /
+  (fig_tib_ears) +
+  plot_annotation(title = "",
+                  caption = "", tag_levels = 'A')
+ggsave("SupplementalFig2.tiff", width = 7, height = 8)
+
+###########################
+# Onset
+sleep_onset_bedtime_diff_min_diary_ears_df <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    sleep_onset_bedtime_diff_min_diary_ears_mean = mean(sleep_onset_bedtime_diff_min_diary_ears)
+    )
+mean(df_analysis_wide3_RemOut$sleep_onset_bedtime_diff_min_diary_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$sleep_onset_bedtime_diff_min_diary_ears, na.rm=TRUE)
 
 fig_onset_ears <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>% 
   ggplot() +
-  geom_density(aes(sleep_onset_diff_min_diary_ears), col = "black") +
-  geom_vline(data = sleep_onset_diff_min_diary_ears, aes(xintercept=sleep_onset_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
-  # scale_colour_manual(name = "Days", values = c("0" = "#E69F00", "1" = "#56B4E9", "2" = "#009E73","3"= "#F0E442", 
-  #                                              "4" = "#0072B2", "5"= "#D55E00", "6"= "#CC79A7", "7" = "#999999")) +
-  geom_vline(aes(xintercept = mean(sleep_onset_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
-  geom_label(aes(x=mean(sleep_onset_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_onset_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.008)) +
-  labs(title = "Diary Bedtime - EARS Bedtime",
-       x = "Difference in Bedtime (minutes)",
+  geom_density(aes(sleep_onset_bedtime_diff_min_diary_ears), col = "black") +
+  geom_vline(data = sleep_onset_bedtime_diff_min_diary_ears_df, aes(xintercept=sleep_onset_bedtime_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(sleep_onset_bedtime_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(sleep_onset_bedtime_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_onset_bedtime_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.008)) +
+  labs(title = "Diary Sleep Onset - EARS Bedtime",
+       x = "Difference in Sleep Onset and Bedtime (minutes)",
        y = "",
        color = "") +
   theme_classic()  +
@@ -364,28 +445,26 @@ fig_onset_ears <-
 fig_onset_ears
 
 # Offset
-sleep_offset_diff_min_diary_ears <- 
+sleep_offset_risetime_diff_min_diary_ears_df <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>% 
   dplyr::group_by(actilife_id) %>% 
   dplyr::summarise(
-    sleep_offset_diff_min_diary_ears_mean = mean(sleep_offset_diff_min_diary_ears)
+    sleep_offset_risetime_diff_min_diary_ears_mean = mean(sleep_offset_risetime_diff_min_diary_ears)
     )
-mean(df_analysis_wide3_RemOut$sleep_offset_diff_min_diary_ears, na.rm=TRUE)
-sd(df_analysis_wide3_RemOut$sleep_offset_diff_min_diary_ears, na.rm=TRUE)
+mean(df_analysis_wide3_RemOut$sleep_offset_risetime_diff_min_diary_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$sleep_offset_risetime_diff_min_diary_ears, na.rm=TRUE)
 
 fig_offset_ears <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>% 
   ggplot() +
-  geom_density(aes(sleep_offset_diff_min_diary_ears), col = "black") +
-  geom_vline(data = sleep_offset_diff_min_diary_ears, aes(xintercept=sleep_offset_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
-  # scale_colour_manual(name = "Days", values = c("0" = "#E69F00", "1" = "#56B4E9", "2" = "#009E73","3"= "#F0E442", 
-  #                                              "4" = "#0072B2", "5"= "#D55E00", "6"= "#CC79A7", "7" = "#999999")) +
-  geom_vline(aes(xintercept = mean(sleep_offset_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
-  geom_label(aes(x=mean(sleep_offset_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_offset_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.008)) +
-  labs(title = "Diary Rise Time - EARS Rise Time",
-       x = "Difference in Rise Time (minutes)",
+  geom_density(aes(sleep_offset_risetime_diff_min_diary_ears), col = "black") +
+  geom_vline(data = sleep_offset_risetime_diff_min_diary_ears_df, aes(xintercept=sleep_offset_risetime_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(sleep_offset_risetime_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(sleep_offset_risetime_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_offset_risetime_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.008)) +
+  labs(title = "Diary Sleep Offset - EARS Rise Time",
+       x = "Difference in Sleep Offset and Rise Time (minutes)",
        y = "") +
   theme_classic()  +
   theme(legend.position="none")
@@ -393,28 +472,26 @@ fig_offset_ears
 
 
 # Duration
-sleep_dur_diff_min_diary_ears <- 
+sleep_dur_time_in_bed_minutes_diff_min_diary_ears_df <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>% 
   dplyr::group_by(actilife_id) %>% 
   dplyr::summarise(
-    sleep_duration_minutes_diff_min_diary_ears_mean = mean(sleep_duration_minutes_diff_min_diary_ears)
+    sleep_dur_time_in_bed_minutes_diff_min_diary_ears_mean = mean(sleep_dur_time_in_bed_minutes_diff_min_diary_ears)
     )
-mean(df_analysis_wide3_RemOut$sleep_duration_minutes_diff_min_diary_ears, na.rm=TRUE)
-sd(df_analysis_wide3_RemOut$sleep_duration_minutes_diff_min_diary_ears, na.rm=TRUE)
+mean(df_analysis_wide3_RemOut$sleep_dur_time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$sleep_dur_time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE)
 
 fig_dur_ears <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>% 
   ggplot() +
-  geom_density(aes(sleep_duration_minutes_diff_min_diary_ears), col = "black") +
-  geom_vline(data = sleep_dur_diff_min_diary_ears, aes(xintercept=sleep_duration_minutes_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
-  # scale_colour_manual(name = "Days", values = c("0" = "#E69F00", "1" = "#56B4E9", "2" = "#009E73","3"= "#F0E442", 
-  #                                              "4" = "#0072B2", "5"= "#D55E00", "6"= "#CC79A7", "7" = "#999999")) +
-  geom_vline(aes(xintercept = mean(sleep_duration_minutes_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
-  geom_label(aes(x=mean(sleep_duration_minutes_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_duration_minutes_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.004)) +
-  labs(title = "Diary Time in Bed - EARS Time in Bed",
-       x = "Difference in Time in Bed (minutes)",
+  geom_density(aes(sleep_dur_time_in_bed_minutes_diff_min_diary_ears), col = "black") +
+  geom_vline(data = sleep_dur_time_in_bed_minutes_diff_min_diary_ears_df, aes(xintercept=sleep_dur_time_in_bed_minutes_diff_min_diary_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(sleep_dur_time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(sleep_dur_time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_dur_time_in_bed_minutes_diff_min_diary_ears, na.rm=TRUE),1)), y = 0.004)) +
+  labs(title = "Diary Sleep Duration - EARS Time in Bed",
+       x = "Difference in Sleep Duration and Time in Bed (minutes)",
        y = "") +
   theme_classic()  +
   theme(legend.position="none")
@@ -426,100 +503,98 @@ fig_dur_ears
   (fig_dur_ears) +
   plot_annotation(title = "",
                   caption = "", tag_levels = 'A')
+ggsave("SupplementalFig4.tiff", width = 7, height = 8)
 ```
 
 ### Actilife & EARS
 ```{r, echo=FALSE}
 
-# Onset
-sleep_onset_diff_min_act_ears <- 
+# Bedtime
+bedtime_diff_min_act_ears_df <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>% 
   dplyr::group_by(actilife_id) %>% 
   dplyr::summarise(
-    sleep_onset_diff_min_actilife_ears_mean = mean(sleep_onset_diff_min_actilife_ears, na.rm = TRUE),
-    sleep_onset_diff_min_actilife_ears_sd = sd(sleep_onset_diff_min_actilife_ears, na.rm = TRUE),
+    bedtime_diff_min_actilife_ears_mean = mean(bedtime_diff_min_actilife_ears, na.rm = TRUE)
     )
-mean(df_analysis_wide3_RemOut$sleep_onset_diff_min_actilife_ears, na.rm=TRUE)
-sd(df_analysis_wide3_RemOut$sleep_onset_diff_min_actilife_ears, na.rm=TRUE)
+mean(df_analysis_wide3_RemOut$bedtime_diff_min_actilife_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$bedtime_diff_min_actilife_ears, na.rm=TRUE)
 
-fig_onset_ears_act <- 
+fig_bedtime_ears_act <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>% 
   ggplot() +
-  geom_density(aes(sleep_onset_diff_min_actilife_ears), col = "black") +
-  geom_vline(data = sleep_onset_diff_min_act_ears, aes(xintercept=sleep_onset_diff_min_actilife_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
-  # scale_colour_manual(name = "Days", values = c("0" = "#E69F00", "1" = "#56B4E9", "2" = "#009E73","3"= "#F0E442", "4" = "#0072B2", "5"= "#D55E00", "6"= "#CC79A7", "7" = "#999999")) +
-  geom_vline(aes(xintercept = mean(sleep_onset_diff_min_actilife_ears, na.rm=TRUE)), linewidth =1) +
-  geom_label(aes(x=mean(sleep_onset_diff_min_actilife_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_onset_diff_min_actilife_ears, na.rm=TRUE),1)), y = 0.009)) +
+  geom_density(aes(bedtime_diff_min_actilife_ears), col = "black") +
+  geom_vline(data = bedtime_diff_min_act_ears_df, aes(xintercept=bedtime_diff_min_actilife_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(bedtime_diff_min_actilife_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(bedtime_diff_min_actilife_ears, na.rm=TRUE), label=paste("mean = ", round(mean(bedtime_diff_min_actilife_ears, na.rm=TRUE),1)), y = 0.009)) +
   labs(title = "ActiGraph Bedtime - EARS Bedtime",
        x = "Difference in Bedtime (minutes)",
        y = "")  +
   theme_classic()  +
   theme(legend.position="none")
-fig_onset_ears_act
+fig_bedtime_ears_act
 
-# Offset
-sleep_offset_diff_min_act_ears <- 
+# Risetime
+risetime_diff_min_act_ear_df <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>% 
   dplyr::group_by(actilife_id) %>% 
   dplyr::summarise(
-    sleep_offset_diff_min_actilife_ears_mean = mean(sleep_offset_diff_min_actilife_ears)
+    risetime_diff_min_actilife_ears_mean = mean(risetime_diff_min_actilife_ears, na.rm=TRUE)
     )
-mean(df_analysis_wide3_RemOut$sleep_offset_diff_min_actilife_ears, na.rm=TRUE)
-sd(df_analysis_wide3_RemOut$sleep_offset_diff_min_actilife_ears, na.rm=TRUE)
+mean(df_analysis_wide3_RemOut$risetime_diff_min_actilife_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$risetime_diff_min_actilife_ears, na.rm=TRUE)
 
-fig_offset_ears_act <- 
+fig_risetime_ears_act <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>% 
   ggplot() +
-  geom_density(aes(sleep_offset_diff_min_actilife_ears), col = "black") +
-  geom_vline(data = sleep_offset_diff_min_act_ears, aes(xintercept=sleep_offset_diff_min_actilife_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
-  # scale_colour_manual(name = "Days", values = c("0" = "#E69F00", "1" = "#56B4E9", "2" = "#009E73","3"= "#F0E442", "4" = "#0072B2", "5"= "#D55E00", "6"= "#CC79A7", "7" = "#999999")) +
-  geom_vline(aes(xintercept = mean(sleep_offset_diff_min_actilife_ears, na.rm=TRUE)), linewidth =1) +
-  geom_label(aes(x=mean(sleep_offset_diff_min_actilife_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_offset_diff_min_actilife_ears, na.rm=TRUE),1)), y = 0.004)) +
+  geom_density(aes(risetime_diff_min_actilife_ears), col = "black") +
+  geom_vline(data = risetime_diff_min_act_ear_df, aes(xintercept=risetime_diff_min_actilife_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(risetime_diff_min_actilife_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(risetime_diff_min_actilife_ears, na.rm=TRUE), label=paste("mean = ", round(mean(risetime_diff_min_actilife_ears, na.rm=TRUE),1)), y = 0.004)) +
   labs(title = "ActiGraph Rise Time - EARS Rise Time",
        x = "Difference in Rise Time (minutes)",
        y = "")  +
   theme_classic()  +
   theme(legend.position="none")
-fig_offset_ears_act
+fig_risetime_ears_act
 
 
 
-# Duration
-sleep_dur_diff_min_act_ears <- 
+# Time in Bed
+tib_diff_min_act_ears_df <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>% 
   dplyr::group_by(actilife_id) %>% 
   dplyr::summarise(
-    sleep_duration_minutes_diff_min_actilife_ears_mean = mean(sleep_duration_minutes_diff_min_actilife_ears, na.rm = TRUE)
+    time_in_bed_minutes_diff_min_actilife_ears_mean = mean(time_in_bed_minutes_diff_min_actilife_ears, na.rm = TRUE)
     )
-mean(df_analysis_wide3_RemOut$sleep_duration_minutes_diff_min_actilife_ears, na.rm=TRUE)
-sd(df_analysis_wide3_RemOut$sleep_duration_minutes_diff_min_actilife_ears, na.rm=TRUE)
+mean(df_analysis_wide3_RemOut$time_in_bed_minutes_diff_min_actilife_ears, na.rm=TRUE)
+sd(df_analysis_wide3_RemOut$time_in_bed_minutes_diff_min_actilife_ears, na.rm=TRUE)
 
-fig_dur_ears_act <- 
+fig_tib_ears_act <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>% 
   ggplot() +
-  geom_density(aes(sleep_duration_minutes_diff_min_actilife_ears), col = "black") +
-  geom_vline(data = sleep_dur_diff_min_act_ears, aes(xintercept=sleep_duration_minutes_diff_min_actilife_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
-  # scale_colour_manual(name = "Days", values = c("0" = "#E69F00", "1" = "#56B4E9", "2" = "#009E73","3"= "#F0E442", "4" = "#0072B2", "5"= "#D55E00", "6"= "#CC79A7", "7" = "#999999")) +
-  geom_vline(aes(xintercept = mean(sleep_duration_minutes_diff_min_actilife_ears, na.rm=TRUE)), linewidth =1) +
-  geom_label(aes(x=mean(sleep_duration_minutes_diff_min_actilife_ears, na.rm=TRUE), label=paste("mean = ", round(mean(sleep_duration_minutes_diff_min_actilife_ears, na.rm=TRUE),1)), y = 0.003)) +
+  geom_density(aes(time_in_bed_minutes_diff_min_actilife_ears), col = "black") +
+  geom_vline(data = tib_diff_min_act_ears_df, aes(xintercept=time_in_bed_minutes_diff_min_actilife_ears_mean, color = actilife_id), linewidth = .5, linetype = "dashed") +
+  geom_vline(aes(xintercept = mean(time_in_bed_minutes_diff_min_actilife_ears, na.rm=TRUE)), linewidth =1) +
+  geom_label(aes(x=mean(time_in_bed_minutes_diff_min_actilife_ears, na.rm=TRUE), label=paste("mean = ", round(mean(time_in_bed_minutes_diff_min_actilife_ears, na.rm=TRUE),1)), y = 0.003)) +
   labs(title = "ActiGraph Time in Bed - EARS Time in Bed",
        x = "Difference in Time in Bed (minutes)",
        y = "")  +
   theme_classic()  +
   theme(legend.position="none")
-fig_dur_ears_act
+fig_tib_ears_act
 
-(fig_onset_ears_act ) /
-  (fig_offset_ears_act) /
-  (fig_dur_ears_act) +
+(fig_bedtime_ears_act ) /
+  (fig_risetime_ears_act) /
+  (fig_tib_ears_act) +
   plot_annotation(title = "",
                   caption = "", tag_levels = 'A')
+ggsave("SupplementalFig3.tiff", width = 7, height = 8)
 ```
 
 # Comparing average bedtimes, rise times, and time in bed among sources
@@ -541,9 +616,9 @@ mean_times_ears <-
   filter(sample_1_flag == 1) %>%
   dplyr::group_by(actilife_id, source) %>%
   dplyr::summarise(
-    mean_onset = mean(sleep_period_start_onset_minutes, na.rm=TRUE),
-    mean_offset = mean(sleep_period_start_offset_minutes, na.rm=TRUE),
-    mean_dur = mean(sleep_duration_minutes, na.rm=TRUE)
+    mean_bedtime = mean(bedtime_start_onset_minutes, na.rm=TRUE),
+    mean_risetime = mean(risetime_start_offset_minutes, na.rm=TRUE),
+    mean_tib = mean(time_in_bed_minutes, na.rm=TRUE)
   ) %>%
   dplyr::ungroup() %>%
   dplyr::mutate_if(
@@ -563,9 +638,9 @@ mean_times_act <-
   filter(sample_2_flag == 1) %>%
   dplyr::group_by(actilife_id, source) %>%
   dplyr::summarise(
-    mean_onset = mean(sleep_period_start_onset_minutes, na.rm=TRUE),
-    mean_offset = mean(sleep_period_start_offset_minutes, na.rm=TRUE),
-    mean_dur = mean(sleep_duration_minutes, na.rm=TRUE)
+    mean_bedtime = mean(bedtime_start_onset_minutes, na.rm=TRUE),
+    mean_risetime = mean(risetime_start_offset_minutes, na.rm=TRUE),
+    mean_tib = mean(time_in_bed_minutes, na.rm=TRUE)
   ) %>%
   dplyr::ungroup() %>%
   dplyr::mutate_if(
@@ -582,54 +657,54 @@ mean_times_act <-
 #  ---- Bedtime ----
 
 # REF GROUP: DIARY
-ontimes_lm <- lm(mean_onset ~ relevel(source, ref = "diary"), data = mean_times_ears)
-apa_ontimes_lm <- apa_print(ontimes_lm)
+bedtimes_lm <- lm(mean_bedtime ~ relevel(source, ref = "diary"), data = mean_times_ears)
+apa_bedtimes_lm <- apa_print(bedtimes_lm)
 apa_table(
-  apa_ontimes_lm$table
+  apa_bedtimes_lm$table
   , landscape = FALSE
   , caption = "Comparing EARS to Diary Bedtimes"
 )
 
 # REF GROUP: ACTILIFE
-ontimes_lm_act <- lm(mean_onset ~ relevel(source, ref = "actilife"), data = mean_times_act)
-apa_ontimes_lm_act <- apa_print(ontimes_lm_act)
+bedtimes_lm_act <- lm(mean_bedtime ~ relevel(source, ref = "actilife"), data = mean_times_act)
+apa_bedtimes_lm_act <- apa_print(bedtimes_lm_act)
 apa_table(
-  apa_ontimes_lm_act$table
+  apa_bedtimes_lm_act$table
   , caption = "Comparing EARS and Diary Bedtimes to ActiGraph Bedtimes"
 )
 
 # REF GROUP: DIARY (COMPARING ACT TO DIARY)
-ontimes_lm_act_diary <- lm(mean_onset ~ relevel(source, ref = "diary"), data = mean_times_act)
-apa_ontimes_lm_act_diary <- apa_print(ontimes_lm_act_diary)
+bedtimes_lm_act_diary <- lm(mean_bedtime ~ relevel(source, ref = "diary"), data = mean_times_act)
+apa_bedtimes_lm_act_diary <- apa_print(bedtimes_lm_act_diary)
 apa_table(
-  apa_ontimes_lm_act_diary$table
+  apa_bedtimes_lm_act_diary$table
   , caption = "Comparing EARS and ActiGraph Bedtimes to Diary Bedtimes"
 )
 
 #  ---- Rise Time ----
 
 # REF GROUP: DIARY
-offtimes_lm <- lm(mean_offset ~ source, data = mean_times_ears)
-apa_offtimes_lm <- apa_print(offtimes_lm)
+risetimes_lm <- lm(mean_risetime ~ source, data = mean_times_ears)
+apa_risetimes_lm <- apa_print(risetimes_lm)
 apa_table(
-  apa_offtimes_lm$table
+  apa_risetimes_lm$table
   , caption = "Comparing EARS to Diary Rise Times"
 )
 
 
 # REF GROUP: ACTILIFE
-offtimes_lm_act <- lm(mean_offset ~ relevel(source, ref = "actilife"), data = mean_times_act)
-apa_offtimes_lm_act <- apa_print(offtimes_lm_act)
+risetimes_lm_act <- lm(mean_risetime ~ relevel(source, ref = "actilife"), data = mean_times_act)
+apa_risetimes_lm_act <- apa_print(risetimes_lm_act)
 apa_table(
-  apa_offtimes_lm_act$table
+  apa_risetimes_lm_act$table
   , caption = "Comparing EARS and Diary Rise Times to ActiGraph Rise Times"
 )
 
 # REF GROUP: DIARY (COMPARING ACT TO DIARY)
-offtimes_lm_act_diary <- lm(mean_offset ~ relevel(source, ref = "diary"), data = mean_times_act)
-apa_offtimes_lm_act_diary <- apa_print(offtimes_lm_act_diary)
+risetimes_lm_act_diary <- lm(mean_risetime ~ relevel(source, ref = "diary"), data = mean_times_act)
+apa_risetimes_lm_act_diary <- apa_print(risetimes_lm_act_diary)
 apa_table(
-  apa_offtimes_lm_act_diary$table
+  apa_risetimes_lm_act_diary$table
   , caption = "Comparing EARS and ActiGraph Rise Times to Diary Rise Times"
 )
 
@@ -637,28 +712,95 @@ apa_table(
 #  ---- Time in Bed ----
 
 # REF GROUP: DIARY
-dur_lm <- lm(mean_dur ~ source, data = mean_times_ears)
-apa_dur_lm <- apa_print(dur_lm)
+tib_lm <- lm(mean_tib ~ source, data = mean_times_ears)
+apa_tib_lm <- apa_print(tib_lm)
 apa_table(
-  apa_dur_lm$table
+  apa_tib_lm$table
   , landscape = FALSE
   , caption = "Comparing EARS Time in Bed to Diary Time in Bed"
 )
 
 # REF GROUP: ACTILIFE
-dur_lm_act <- lm(mean_dur ~ relevel(source, ref = "actilife"), data = mean_times_act)
-apa_dur_lm_act <- apa_print(dur_lm_act)
+tib_lm_act <- lm(mean_tib ~ relevel(source, ref = "actilife"), data = mean_times_act)
+apa_tib_lm_act <- apa_print(tib_lm_act)
 apa_table(
-  apa_dur_lm_act$table
+  apa_tib_lm_act$table
   , caption = "Comparing EARS and Diary Time in Bed to ActiGraph Time in Bed"
 )
 
 # REF GROUP: DIARY (COMPARING ACT TO DIARY)
-dur_lm_act_diary <- lm(mean_dur ~ relevel(source, ref = "diary"), data = mean_times_act)
-apa_dur_lm_act_diary <- apa_print(dur_lm_act_diary)
+tib_lm_act_diary <- lm(mean_tib ~ relevel(source, ref = "diary"), data = mean_times_act)
+apa_tib_lm_act_diary <- apa_print(tib_lm_act_diary)
 apa_table(
-  apa_dur_lm_act_diary$table
+  apa_tib_lm_act_diary$table
   , caption = "Comparing EARS and ActiGraph Time in Bed to Diary Time in Bed"
+)
+
+
+#######################
+
+### SUPPLEMENTARY DIARY (SLEEP) AND EARS (BED)
+
+mean_times_ears.diary_supp <-
+  df_analysis4_RemOut %>%
+  filter(sample_1_flag == 1) %>%
+  dplyr::mutate(
+    bed.sleepon_min = 
+      ifelse(
+        source == "diary", sleep_period_start_onset_minutes, bedtime_start_onset_minutes
+        ),
+    rise.sleepoff_min = 
+      ifelse(
+        source == "diary", sleep_period_start_offset_minutes, risetime_start_offset_minutes
+        ),
+    tib.dur_min = 
+      ifelse(
+        source == "diary", sleep_duration_minutes, time_in_bed_minutes
+        )
+    ) %>%
+  dplyr::group_by(actilife_id, source) %>%
+  dplyr::summarise(
+    mean_bed.sleep = mean(bed.sleepon_min, na.rm=TRUE),
+    mean_rise.off = mean(rise.sleepoff_min, na.rm=TRUE),
+    mean_tib.dur = mean(tib.dur_min, na.rm=TRUE)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate_if(
+    is.character, as.factor
+  ) %>%
+  dplyr::group_by(actilife_id) %>%
+  dplyr::mutate(
+    n_sources = n()
+  ) %>%
+  filter(
+    n_sources > 1,
+    source !="actilife"
+  ) 
+
+# ears bedtime v diary sleep onset
+bedtimes_lm_supp <- lm(mean_bed.sleep ~ relevel(source, ref = "diary"), data = mean_times_ears.diary_supp)
+apa_bedtimes_lm_supp <- apa_print(bedtimes_lm_supp)
+apa_table(
+  apa_bedtimes_lm_supp$table
+  , landscape = FALSE
+  , caption = "Comparing EARS Bedtime to Diary Sleep Onset"
+)
+
+# ears risetime v diary sleep offset
+risetimes_lm_supp <- lm(mean_rise.off ~ relevel(source, ref = "diary"), data = mean_times_ears.diary_supp)
+apa_risetimes_lm_supp <- apa_print(risetimes_lm_supp)
+apa_table(
+  apa_risetimes_lm_supp$table
+  , caption = "Comparing EARS Risetime to Diary Sleep Offset"
+)
+
+# ears tib v diary sleep duration
+tib_lm_supp <- lm(mean_tib.dur ~ relevel(source, ref = "diary"), data = mean_times_ears.diary_supp)
+apa_tib_lm_supp <- apa_print(tib_lm_supp)
+apa_table(
+  apa_tib_lm_supp$table
+  , landscape = FALSE
+  , caption = "Comparing EARS Time-in-Bed to Diary Sleep Duration"
 )
 
 ```
@@ -668,12 +810,12 @@ There is no difference in bedtime `r apa_ontimes_lm$statistic$sourceears`, rise 
 df_analysis4_RemOut %>%
   #filter(sample_1_flag == 1) %>%
   dplyr::mutate(
-    sleep_period_start_onset_hours = sleep_period_start_onset_minutes/60,
-    sleep_period_start_offset_hours = sleep_period_start_offset_minutes/60
+    bedtime_start_onset_hours = bedtime_start_onset_minutes/60,
+    risetime_start_offset_hours = risetime_start_offset_minutes/60
   ) %>%
   ggplot() +
-  geom_density(aes(sleep_period_start_onset_hours, col = source), linewidth = 1, trim=TRUE) +
-  geom_density(aes(sleep_period_start_offset_hours, col = source), linewidth = 1, linetype="dashed", trim=TRUE) +
+  geom_density(aes(bedtime_start_onset_hours, col = source), linewidth = 1, trim=TRUE) +
+  geom_density(aes(risetime_start_offset_hours, col = source), linewidth = 1, linetype="dashed", trim=TRUE) +
   theme_classic() +
   scale_color_manual(values = cbPalette, labels = c("ActiGraph", "Diary", "EARS")) +
   labs(title = "The Distribution of Bedtimes and Rise Times",
@@ -686,7 +828,34 @@ df_analysis4_RemOut %>%
   theme(axis.text.y = element_text(size = 12))  +
   geom_vline(aes(xintercept = 10.65028), colour = "#CC79A7", linetype = "solid", linewidth = .5) +
   theme(legend.direction = c("vertical"))
-ggsave("~/Dropbox/Postdoc/15_Sleep_metrics_reliability/Dist_Onset_Offset_Across_Sources_ROs.tiff")
+ggsave("Figure1.tiff")
+
+
+## Average timestamps
+
+avg_timestamps <- 
+  df_analysis4_RemOut %>%
+  dplyr::group_by(source) %>%
+  dplyr::summarise(
+    mean_bed_minutes_from_midnight = mean(bedtime_start_onset_minutes, na.rm = TRUE), # avg minutes from midnight
+    mean_bed_onset_H = mean_bed_minutes_from_midnight/60, # hours
+    mean_bed_onset_M =  ((mean_bed_minutes_from_midnight/60) - trunc(mean_bed_minutes_from_midnight/60))*60, # minutes
+    mean_bed_onset_S = (mean_bed_onset_M - trunc(mean_bed_onset_M))*60, # seconds
+    mean_rise_minutes_from_midnight = mean(risetime_start_offset_minutes, na.rm = TRUE), # avg minutes from midnight
+    mean_rise_onset_H = mean_rise_minutes_from_midnight/60, # hours
+    mean_rise_onset_M =  ((mean_rise_minutes_from_midnight/60) - trunc(mean_rise_minutes_from_midnight/60))*60, # minutes
+    mean_rise_onset_S = (mean_rise_onset_M - trunc(mean_rise_onset_M))*60 # seconds    
+  ) %>%
+  dplyr::mutate(
+    mean_bed_timestamp_H = as.integer(mean_bed_onset_H),
+    mean_bed_timestamp_M = trunc(mean_bed_onset_M),
+    mean_bed_timestamp_S = as.integer(mean_bed_onset_S),
+    bed_timestamp = paste0(mean_bed_timestamp_H, ":", mean_bed_timestamp_M, ":", mean_bed_timestamp_S),
+    mean_rise_timestamp_H = as.integer(mean_rise_onset_H),
+    mean_rise_timestamp_M = trunc(mean_rise_onset_M),
+    mean_rise_timestamp_S = as.integer(mean_rise_onset_S),
+    rise_timestamp = paste0(mean_rise_timestamp_H, ":", mean_rise_timestamp_M, ":", mean_rise_timestamp_S)
+  )
 ```
 
 # Correlation between sources
@@ -696,23 +865,14 @@ ggsave("~/Dropbox/Postdoc/15_Sleep_metrics_reliability/Dist_Onset_Offset_Across_
 
 # DIARY AND EARS
 
-onset_de_RO <- 
-  lmer(
-  scale(sleep_period_start_onset_minutes_ears) ~ scale(sleep_period_start_onset_minutes_diary) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(onset_de_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_period_start_onset_minutes_ears, measure2 = sleep_period_start_onset_minutes_diary, dataset = df_analysis_wide3_RemOut)
-apa_onset_de_RO <- apa_print(onset_de_RO) # rmcorr not supported with apa_print
-apa_table(
-  apa_onset_de_RO$table
-  , caption = "Correlation between Diary and EARS Bedtime Minutes from Midnight"
-)
+
+rmcorr(participant = actilife_id, measure1 = bedtime_start_onset_minutes_ears, measure2 = bedtime_start_onset_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.29, p=0.002
 
 de_corr_onset <- 
   df_analysis_wide3_RemOut %>%
   ggplot(
     aes(
-      x = sleep_period_start_onset_minutes_diary, y = sleep_period_start_onset_minutes_ears
+      x = bedtime_start_onset_minutes_diary, y = bedtime_start_onset_minutes_ears
     )
   ) +
   geom_point() +
@@ -726,57 +886,16 @@ de_corr_onset <-
     axis.text.y = element_text(size = 9)
     )
 
-# DIARY and ACTILIFE
-
-onset_da_RO <- 
-  lmer(
-  scale(sleep_period_start_onset_minutes_actilife) ~ scale(sleep_period_start_onset_minutes_diary) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(onset_da_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_period_start_onset_minutes_actilife, measure2 = sleep_period_start_onset_minutes_diary, dataset = df_analysis_wide3_RemOut)
-apa_onset_da_RO <- apa_print(onset_da_RO)
-apa_table(
-  apa_onset_da_RO$table
-  , caption = "Correlation between Diary and ActiGraph Bedtime Minutes from Midnight"
-)
-
-da_corr_onset <-
-  df_analysis_wide3_RemOut %>%
-  ggplot(
-    aes(
-      x = sleep_period_start_onset_minutes_diary, y = sleep_period_start_onset_minutes_actilife
-    )
-  ) +
-  geom_point() +
-  stat_smooth(method = "lm", color = "#999999")  +
-  labs(
-    x = "Bedtime Minutes from Midnight (Diary)",
-    y = "Bedtime \n Minutes from Midnight (ActiGraph)"
-  ) +
-  theme(
-    axis.text.x = element_text(size = 9),
-    axis.text.y = element_text(size = 9)
-    )
 
 # ACTILIFE and EARS
 
-onset_ae_RO <- 
-  lmer(
-  scale(sleep_period_start_onset_minutes_ears) ~ scale(sleep_period_start_onset_minutes_actilife) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(onset_ae_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_period_start_onset_minutes_ears, measure2 = sleep_period_start_onset_minutes_actilife, dataset = df_analysis_wide3_RemOut)
-apa_onset_ae_RO <- apa_print(onset_ae_RO)
-apa_table(
-  apa_onset_ae_RO$table
-  , caption = "Correlation between ActiGraph and EARS Bedtime Minutes from Midnight"
-)
+rmcorr(participant = actilife_id, measure1 = bedtime_start_onset_minutes_ears, measure2 = bedtime_start_onset_minutes_actilife, dataset = df_analysis_wide3_RemOut) # r=0.38, p=0.013
 
 ae_corr_onset <-
   df_analysis_wide3_RemOut %>%
   ggplot(
     aes(
-      x = sleep_period_start_onset_minutes_actilife, y = sleep_period_start_onset_minutes_ears
+      x = bedtime_start_onset_minutes_actilife, y = bedtime_start_onset_minutes_ears
     )
   ) +
   geom_point() +
@@ -790,28 +909,41 @@ ae_corr_onset <-
     axis.text.y = element_text(size = 9)
     )
 
+# DIARY and ACTILIFE
+
+rmcorr(participant = actilife_id, measure1 = bedtime_start_onset_minutes_actilife, measure2 = bedtime_start_onset_minutes_diary, dataset = df_analysis_wide3_RemOut)  # r=0.54, p<0.001
+
+da_corr_onset <-
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(
+      x = bedtime_start_onset_minutes_diary, y = bedtime_start_onset_minutes_actilife
+    )
+  ) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "#999999")  +
+  labs(
+    x = "Bedtime Minutes from Midnight (Diary)",
+    y = "Bedtime \n Minutes from Midnight (ActiGraph)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+    )
+
 
 
 #  ---- Rise Time ----
 
 # DIARY and EARS
 
-offset_de_RO <- 
-  lmer(
-  scale(sleep_period_start_offset_minutes_ears) ~ scale(sleep_period_start_offset_minutes_diary) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(offset_de_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_period_start_offset_minutes_ears, measure2 = sleep_period_start_offset_minutes_diary, dataset = df_analysis_wide3_RemOut)
-apa_offset_de_RO <- apa_print(offset_de_RO)
-apa_table(
-  apa_offset_de_RO$table
-  , caption = "Correlation between Diary and EARS Rise Time Minutes from Midnight"
-)
+rmcorr(participant = actilife_id, measure1 = risetime_start_offset_minutes_ears, measure2 = risetime_start_offset_minutes_diary, dataset = df_analysis_wide3_RemOut) #r = 0.52, p<0.001
+
 de_corr_offset <-
   df_analysis_wide3_RemOut %>%
   ggplot(
     aes(
-      x = sleep_period_start_offset_minutes_diary, y = sleep_period_start_offset_minutes_ears
+      x = risetime_start_offset_minutes_diary, y = risetime_start_offset_minutes_ears
     )
   ) +
   geom_point() +
@@ -826,56 +958,16 @@ de_corr_offset <-
     ) +
   geom_hline(aes(yintercept = 639), colour = "#CC79A7", linetype = "solid", linewidth = 1)
 
-# DIARY and ACTILIFE
-
-offset_da_RO <- 
-  lmer(
-  scale(sleep_period_start_offset_minutes_actilife) ~ scale(sleep_period_start_offset_minutes_diary) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(offset_da_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_period_start_offset_minutes_actilife, measure2 = sleep_period_start_offset_minutes_diary, dataset = df_analysis_wide3_RemOut)
-apa_offset_da_RO <- apa_print(offset_da_RO)
-apa_table(
-  apa_offset_da_RO$table
-  , caption = "Correlation between Diary and ActiGraph Rise Time Minutes from Midnight"
-)
-da_corr_offset <-
-  df_analysis_wide3_RemOut %>%
-  ggplot(
-    aes(
-      x = sleep_period_start_offset_minutes_diary, y = sleep_period_start_offset_minutes_actilife
-    )
-  ) +
-  geom_point() +
-  stat_smooth(method = "lm", color = "#999999")  +
-  labs(
-    x = "Rise Time Minutes from Midnight (Diary)",
-    y = "Rise Time \n Minutes from Midnight (ActiGraph)"
-  ) +
-  theme(
-    axis.text.x = element_text(size = 9),
-    axis.text.y = element_text(size = 9)
-    )
-
 
 # ACTILIFE and EARS
 
-offset_ae_RO <- 
-  lmer(
-  scale(sleep_period_start_offset_minutes_ears) ~ scale(sleep_period_start_offset_minutes_actilife) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(offset_ae_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_period_start_offset_minutes_ears, measure2 = sleep_period_start_offset_minutes_actilife, dataset = df_analysis_wide3_RemOut)
-apa_offset_ae_RO <- apa_print(offset_ae_RO)
-apa_table(
-  apa_offset_ae_RO$table
-  , caption = "Correlation between ActiGraph and EARS Rise Time Minutes from Midnight"
-)
+rmcorr(participant = actilife_id, measure1 = risetime_start_offset_minutes_ears, measure2 = risetime_start_offset_minutes_actilife, dataset = df_analysis_wide3_RemOut) # r=0.29, p=0.067
+
 ae_corr_offset <-
   df_analysis_wide3_RemOut %>%
   ggplot(
     aes(
-      x = sleep_period_start_offset_minutes_actilife, y = sleep_period_start_offset_minutes_ears
+      x = risetime_start_offset_minutes_actilife, y = risetime_start_offset_minutes_ears
     )
   ) +
   geom_point() +
@@ -891,26 +983,40 @@ ae_corr_offset <-
   geom_hline(aes(yintercept = 639), colour = "#CC79A7", linetype = "solid", linewidth = 1)
 
 
+# DIARY and ACTILIFE
+
+rmcorr(participant = actilife_id, measure1 = risetime_start_offset_minutes_actilife, measure2 = risetime_start_offset_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.55, p<0.001
+
+da_corr_offset <-
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(
+      x = risetime_start_offset_minutes_diary, y = risetime_start_offset_minutes_actilife
+    )
+  ) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "#999999")  +
+  labs(
+    x = "Rise Time Minutes from Midnight (Diary)",
+    y = "Rise Time \n Minutes from Midnight (ActiGraph)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+    )
+
+
 #  ---- Time in Bed ----
 
 # DIARY and EARS
 
-dur_de_RO <- 
-  lmer(
-  scale(sleep_duration_minutes_ears) ~ scale(sleep_duration_minutes_diary) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(dur_de_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_duration_minutes_ears, measure2 = sleep_duration_minutes_diary, dataset = df_analysis_wide3_RemOut)
-apa_dur_de_RO <- apa_print(dur_de_RO)
-apa_table(
-  apa_dur_de_RO$table
-  , caption = "Correlation between Diary and EARS Time in Bed"
-)
+rmcorr(participant = actilife_id, measure1 = time_in_bed_minutes_ears, measure2 = time_in_bed_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.37, p<0.001
+
 de_corr_dur <-
   df_analysis_wide3_RemOut %>%
   ggplot(
     aes(
-      x = sleep_duration_minutes_diary, y = sleep_duration_minutes_ears
+      x = time_in_bed_minutes_diary, y = time_in_bed_minutes_ears
     )
   ) +
   geom_point() +
@@ -924,55 +1030,15 @@ de_corr_dur <-
     axis.text.y = element_text(size = 9)
     )
 
-# DIARY and ACTILIFE
-
-dur_da_RO <- 
-  lmer(
-  scale(sleep_duration_minutes_actilife) ~ scale(sleep_duration_minutes_diary) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(dur_da_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_duration_minutes_actilife, measure2 = sleep_duration_minutes_diary, dataset = df_analysis_wide3_RemOut)
-apa_dur_da_RO <- apa_print(dur_da_RO)
-apa_table(
-  apa_dur_da_RO$table
-  , caption = "Correlation between Diary and ActiGraph Time in Bed"
-)
-da_corr_dur <-
-  df_analysis_wide3_RemOut %>%
-  ggplot(
-    aes(
-      x = sleep_duration_minutes_diary, y = sleep_duration_minutes_actilife
-    )
-  ) +
-  geom_point() +
-  stat_smooth(method = "lm", color = "#999999")  +
-  labs(
-    x = "Time in Bed Minutes (Diary)",
-    y = "Time in Bed \n Minutes (ActiGraph)"
-  ) +
-  theme(
-    axis.text.x = element_text(size = 9),
-    axis.text.y = element_text(size = 9)
-    )
-
 # ACTILIFE and EARS
 
-dur_ae_RO <- 
-  lmer(
-  scale(sleep_duration_minutes_ears) ~ scale(sleep_duration_minutes_actilife) + (1 | actilife_id), data = df_analysis_wide3_RemOut
-)
-summary(dur_ae_RO)
-rmcorr(participant = actilife_id, measure1 = sleep_duration_minutes_ears, measure2 = sleep_duration_minutes_actilife, dataset = df_analysis_wide3_RemOut)
-apa_dur_ae_RO <- apa_print(dur_ae_RO)
-apa_table(
-  apa_dur_ae_RO$table
-  , caption = "Correlation between ActiGraph and EARS Time in Bed"
-)
+rmcorr(participant = actilife_id, measure1 = time_in_bed_minutes_ears, measure2 = time_in_bed_minutes_actilife, dataset = df_analysis_wide3_RemOut) # r=0.55, p<0.001
+
 ae_corr_dur <-
   df_analysis_wide3_RemOut %>%
   ggplot(
     aes(
-      x = sleep_duration_minutes_actilife, y = sleep_duration_minutes_ears
+      x = time_in_bed_minutes_actilife, y = time_in_bed_minutes_ears
     )
   ) +
   geom_point() +
@@ -986,17 +1052,157 @@ ae_corr_dur <-
     axis.text.y = element_text(size = 9)
     )
 
+# DIARY and ACTILIFE
+
+rmcorr(participant = actilife_id, measure1 = time_in_bed_minutes_actilife, measure2 = time_in_bed_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.36, p=0.002
+
+da_corr_dur <-
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(
+      x = time_in_bed_minutes_diary, y = time_in_bed_minutes_actilife
+    )
+  ) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "#999999")  +
+  labs(
+    x = "Time in Bed Minutes (Diary)",
+    y = "Time in Bed \n Minutes (ActiGraph)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+    )
+
 (de_corr_onset + de_corr_offset + de_corr_dur) /
   (ae_corr_onset + ae_corr_offset + ae_corr_dur) +
   plot_annotation(title = 'Intersource Correlations', tag_levels = 'A')
+ggsave("Figure2.tiff", width = 14, height = 8)
+
+#######################
+
+### SUPPLEMENTARY DIARY (SLEEP) AND EARS (BED)
+
+#  ---- ONSET ----
+
+rmcorr(participant = actilife_id, measure1 = bedtime_start_onset_minutes_ears, measure2 = sleep_period_start_onset_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.47, p<0.001
+
+
+de_corr_onset_supp <- 
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(
+      x = sleep_period_start_onset_minutes_diary, y = bedtime_start_onset_minutes_ears
+    )
+  ) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "#56B4E9")  +
+  labs(
+    x = "Sleep Onset Minutes from Midnight (Diary)",
+    y = "Bedtime \n Minutes from Midnight (EARS)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+    )
+
+#  ---- OFFSET ----
+
+rmcorr(participant = actilife_id, measure1 = risetime_start_offset_minutes_ears, measure2 = sleep_period_start_offset_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.48, p<0.001
+
+
+de_corr_offset_supp <- 
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(
+      x = sleep_period_start_offset_minutes_diary, y = risetime_start_offset_minutes_ears
+    )
+  ) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "#56B4E9")  +
+  labs(
+    x = "Sleep Offset Minutes from Midnight (Diary)",
+    y = "Risetime \n Minutes from Midnight (EARS)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+    ) +
+  geom_hline(aes(yintercept = 639), colour = "#CC79A7", linetype = "solid", linewidth = 1)
+
+#  ---- DURATION ----
+
+rmcorr(participant = actilife_id, measure1 = time_in_bed_minutes_ears, measure2 = sleep_duration_minutes_diary, dataset = df_analysis_wide3_RemOut) # r=0.44, p<0.001
+
+
+de_corr_dur_supp <- 
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(
+      x = sleep_duration_minutes_diary, y = time_in_bed_minutes_ears
+    )
+  ) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "#56B4E9")  +
+  labs(
+    x = "Sleep Duration (Diary)",
+    y = "Time-in-Bed (EARS)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+    )
+
+(de_corr_onset_supp + de_corr_offset_supp + de_corr_dur_supp) +
+  plot_annotation(title = 'Intersource Correlations', tag_levels = 'A')
+ggsave("SupplementalFig6.tiff", width = 14, height = 4)
 
 ```
 
-Bedtime is correlated among Diary, ActiGraph, and EARS sources. The association between Diary and EARS bedtime is`r apa_onset_de_RO$full_result$sleep_period_start_onset_minutes_diary`. The association between Diary and ActiGraph bedtime is`r apa_onset_da_RO$full_result$sleep_period_start_onset_minutes_diary`. The association between ActiGraph and EARS bedtime is `r apa_onset_ae_RO$full_result$sleep_period_start_onset_minutes_actilife`.  
 
-Rise time is correlated among Diary, ActiGraph, and EARS sources. The association between Diary and EARS rise time is`r apa_offset_de_RO$full_result$sleep_period_start_offset_minutes_diary`. The association between Diary and ActiGraph rise time is`r apa_offset_da_RO$full_result$sleep_period_start_offset_minutes_diary`. The association between ActiGraph and EARS rise time is `r apa_offset_ae_RO$full_result$sleep_period_start_offset_minutes_actilife`.   
+```{r}
+#######################
 
-Time in bed is correlated among Diary, ActiGraph, and EARS sources. The association between Diary and EARS time in bed is`r apa_dur_de_RO$full_result$sleep_duration_minutes_diary`. The association between Diary and ActiGraph time in bed is`r apa_dur_da_RO$full_result$sleep_duration_minutes_diary`. The association between ActiGraph and EARS time in bed is `r apa_dur_ae_RO$full_result$sleep_duration_minutes_actilife`. 
+### EXPLORATORY EARS (Bedtime/Rise/TIB) AND PSQI (Bedtime/Rise/TIB)
+#### 
+
+psqi <-
+  df_analysis_wide3_RemOut %>%
+  filter(sample_1_flag == 1) %>%
+  dplyr::group_by(actilife_id) %>%
+  summarise(
+    mean_bedtime = mean(bedtime_start_onset_minutes_ears),
+    mean_risetime = mean(risetime_start_offset_minutes_ears),
+    mean_tib = mean(time_in_bed_minutes_ears)
+  )
+
+psqi <-
+  left_join(psqi, df_analysis_wide_demoxx, by = "actilife_id")
+
+# converting psqi timestamps into minutes from midnight
+psqi <-
+  psqi %>%
+  dplyr::mutate(
+    psqi_1_gone_to_bed_timestamp_hms = as.character(psqi_1_gone_to_bed_timestamp_hms),
+    psqi_3_wakeup_timestamp_hms = as.character(psqi_3_wakeup_timestamp_hms),
+    wake_date = date(psqi_3_wakeup_timestamp_hms),
+    psqi_onset_timestamp = lubridate::as_datetime(psqi_1_gone_to_bed_timestamp_hms),
+    psqi_offset_timestamp = lubridate::as_datetime(psqi_3_wakeup_timestamp_hms),
+    psqi_sleep_period_start_timestamp = lubridate::as_datetime(paste(wake_date, "00:00:00")),
+    psqi_sleep_period_start_onset_minutes = as.numeric(difftime(psqi_onset_timestamp, psqi_sleep_period_start_timestamp, units = "mins")),
+    psqi_sleep_period_start_offset_minutes = as.numeric(difftime(psqi_offset_timestamp, psqi_sleep_period_start_timestamp, units = "mins")),
+    psqi_time_in_bed_minutes = as.numeric(difftime(psqi_offset_timestamp, psqi_onset_timestamp, units = "mins"))
+  )
+
+# bedtime
+cor.test(psqi$mean_bedtime, psqi$psqi_sleep_period_start_onset_minutes) # r = 0.08116312, p = 0.6814
+# risetime
+cor.test(psqi$mean_risetime, psqi$psqi_sleep_period_start_offset_minutes) # r = 0.2007547, p = 0.3057
+# time-in-bed
+cor.test(psqi$mean_tib, psqi$psqi_time_in_bed_minutes) # r = -0.0008592537, p = 0.9965
+```
+No correlations between EARS and PSQI bedtime, ristime, and tib
+
 
 # Spec/Sens/Acc
 
@@ -1005,16 +1211,56 @@ Time in bed is correlated among Diary, ActiGraph, and EARS sources. The associat
 # EARS specificity = true wake periods divided by the sum of false wake and true wake periods. 
 # EARS accuracy = true sleep and true wake epochs divided by the sum of all true and false sleep and wake epochs
 
-# _ Sample 1 Spec/Sens ----
-ears_spec_sens <- df_analysis_wide3_RemOut %>% dplyr::select(actilife_id, sleep_offset_date, day_num, sample_1_flag, ends_with(c("sensitivity", "specificity", "accuracy"))) %>% drop_na(ears_sensitivity)
-act_spec_sens <- df_analysis_wide3_RemOut %>% dplyr::select(actilife_id, sleep_offset_date, day_num, sample_2_flag, ends_with(c("sensitivity", "specificity", "accuracy"))) %>% drop_na(actilife_sensitivity)
+# _ Sample 1 EARS v DIARY Spec/Sens:  ----
 
-earsdiary_spec_sens <-
-  ears_spec_sens %>% # specificty and sensitivity are against the diary data (this is more intuitive than the individual participant distributions)
-  filter(sample_1_flag == 1) %>% 
+ears_spec_sens <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>%
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, ends_with(c("bed_sensitivity", "bed_specificity", "bed_accuracy"))) %>%
+  drop_na(ears.diary_bed_sensitivity)
+
+ears_spec_sens %>% # specificty and sensitivity are against the diary data (this is more intuitive than the individual participant distributions)
   ggplot() + 
- geom_line(aes(x = 1 - ears_specificity, y = ears_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
-  geom_point(aes(x = 1 - ears_specificity, y = ears_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
+ geom_line(aes(x = 1 - ears.diary_bed_specificity, y = ears.diary_bed_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
+  geom_point(aes(x = 1 - ears.diary_bed_specificity, y = ears.diary_bed_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
+  geom_abline(lty = 2, alpha = 0.5, color = "gray50", linewidth = 1.2) +
+  expand_limits(x = c(0,1), y = c(0,1)) +
+  theme_minimal() +
+  labs(
+    x = "1 - Specificity (FPR)",
+    y = "Sensitivity (TPR)",
+    title = "EARS ROC"
+  )
+ggsave("Figure3.tiff", width = 6, height = 6)
+
+mode(1 - ears_spec_sens$ears.diary_bed_specificity)
+mode(ears_spec_sens$ears.diary_bed_sensitivity)
+
+# EARS v DIARY (1440 min/day)
+ears_sens_spec_acc <- 
+  ears_spec_sens %>%
+  dplyr::ungroup() %>%
+  dplyr::summarise(
+    sensitivity = mean(ears.diary_bed_sensitivity), # TPR
+    specificity = mean(ears.diary_bed_specificity),
+    accuracy = mean(ears.diary_bed_accuracy),
+    fpr = mean(1 - ears_spec_sens$ears.diary_bed_specificity, na.rm=TRUE)
+  ) 
+
+################ SUPPLEMENTARY ################ 
+
+# _ Sample 1 Spec/Sens: EARS BED v DIARY SLEEP (1440)----
+
+ears_spec_sens_supp <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>% 
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, ends_with(c("sleep_sensitivity", "sleep_specificity", "sleep_accuracy"))) %>% 
+  drop_na(ears.diary_sleep_sensitivity)
+
+ears_spec_sens_supp %>% 
+  ggplot() + 
+ geom_line(aes(x = 1 - ears.diary_sleep_specificity, y = ears.diary_sleep_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
+  geom_point(aes(x = 1 - ears.diary_sleep_specificity, y = ears.diary_sleep_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
   geom_abline(lty = 2, alpha = 0.5, color = "gray50", linewidth = 1.2) +
   expand_limits(x = c(0,1), y = c(0,1)) +
   theme_minimal() +
@@ -1024,60 +1270,67 @@ earsdiary_spec_sens <-
     title = "EARS ROC"
   )
 
-actdiary_spec_sens <- # need act v diary ?
-  act_spec_sens %>% # specificty and sensitivity are against the diary data (this is more intuitive than the individual participant distributions)
-  filter(sample_2_flag == 1) %>% 
-  ggplot() + 
-  geom_line(aes(x = 1 - actilife_specificity, y = actilife_sensitivity), linewidth = 1.5, color = "#999999", alpha = .5) +
-  geom_point(aes(x = 1 - actilife_specificity, y = actilife_sensitivity), linewidth = 1.5, color = "#999999", alpha = .5) +
-  geom_abline(lty = 2, alpha = 0.5, color = "gray50", linewidth = 1.2) +
-  expand_limits(x = c(0,1), y = c(0,1)) +
-  theme_minimal() +
-  labs(
-    x = "1 - Specificity (FPR)",
-    y = "Sensitivity (TPR)",
-    title = "ActiGraph ROC"
-  )
+mode(1 - ears_spec_sens_supp$ears.diary_sleep_specificity) # 0
+mode(ears_spec_sens_supp$ears.diary_sleep_sensitivity) # 1
+
+ears_spec_sens_acc_supp <- 
+  ears_spec_sens_supp %>%
+  dplyr::ungroup() %>%
+  dplyr::summarise(
+    sensitivity = mean(ears.diary_sleep_sensitivity), # TPR
+    specificity = mean(ears.diary_sleep_specificity),
+    accuracy = mean(ears.diary_sleep_accuracy),
+    fpr = mean(1 - ears_spec_sens_supp$ears.diary_sleep_specificity, na.rm=TRUE)
+  ) 
 
 
-# table with sensitivty, specificity, accuracy
-ears_sens_spec_acc <- 
-  df_analysis_wide3_RemOut %>%
-  dplyr::select(c(actilife_id, sleep_offset_date, day_num, sample_1_flag, sample_2_flag, ends_with(c("sensitivity", "specificity", "accuracy")))) %>%
+# _ Sample 1 EARS v DIARY Spec/Sens TRUNCATED: EARS (8:30-10:39) v Diary ----
+
+ears_spec_sens_trunc <- 
+  df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>%
-  drop_na(ears_sensitivity) %>%
- dplyr::group_by(actilife_id) %>%
-  dplyr::summarise(
-    sensitivity = mean(ears_sensitivity),
-    specificity = mean(ears_specificity),
-    accuracy = mean(ears_accuracy)
-  ) %>%
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, ends_with(c("bed_sensitivity_trunc", "bed_specificity_trunc", "bed_accuracy_trunc"))) %>%
+  drop_na(ears.diary_bed_sensitivity_trunc)
+
+
+mode(1 - ears_spec_sens_trunc$ears.diary_bed_specificity_trunc) # 0
+mode(ears_spec_sens_trunc$ears.diary_bed_sensitivity_trunc) # 1
+
+ears_spec_sens_trunc_acc <- 
+  ears_spec_sens_trunc %>%
   dplyr::ungroup() %>%
   dplyr::summarise(
-    sensitivity = mean(sensitivity),
-    specificity = mean(specificity),
-    accuracy = mean(accuracy)
-  )  
+    sensitivity = mean(ears.diary_bed_sensitivity_trunc), # TPR
+    specificity = mean(ears.diary_bed_specificity_trunc),
+    accuracy = mean(ears.diary_bed_accuracy_trunc),
+    fpr = mean(1 - ears_spec_sens_trunc$ears.diary_bed_specificity_trunc, na.rm=TRUE)
+  ) 
 
-# nice_table(ears_sens_spec_acc, title = "Average EARS Sensitivity, Specificity, and Accuracy")
 
-ears_sens_spec_acc <-
-  df_analysis_wide3_RemOut %>%
-  dplyr::select(c(actilife_id, sleep_offset_date, day_num, sample_1_flag, sample_2_flag, ends_with(c("sensitivity", "specificity", "accuracy")))) %>%
+# _ Sample 2 EARS v ACTIGRAPH Spec/Sens:  ----
+
+# EARS v ActiGraph
+act_spec_sens <-
+  df_analysis_wide3_RemOut %>% 
   filter(sample_2_flag == 1) %>%
-  drop_na(actilife_sensitivity) %>%
- dplyr::group_by(actilife_id) %>%
-  dplyr::summarise(
-    sensitivity = mean(ears_sensitivity),
-    specificity = mean(ears_specificity),
-    accuracy = mean(ears_accuracy)
-  ) %>%
+  dplyr::select(actilife_id, risetime_date, day_num, sample_2_flag, ends_with(c("bed_sensitivity", "bed_specificity", "bed_accuracy"))) %>%
+  drop_na(ears.actilife_bed_accuracy)
+
+mode(1 - act_spec_sens$ears.actilife_bed_specificity) # 0
+mode(act_spec_sens$ears.actilife_bed_sensitivity) # 1
+
+act_spec_sens_acc <- 
+  act_spec_sens %>%
   dplyr::ungroup() %>%
   dplyr::summarise(
-    sensitivity = mean(sensitivity),
-    specificity = mean(specificity),
-    accuracy = mean(accuracy)
-  )  
+    sensitivity = mean(ears.actilife_bed_sensitivity), # TPR
+    specificity = mean(ears.actilife_bed_specificity),
+    accuracy = mean(ears.actilife_bed_accuracy),
+    fpr = mean(1 - act_spec_sens$ears.actilife_bed_specificity, na.rm=TRUE)
+  ) 
+
+
+
 ```
 
 # Alignment across sources
@@ -1091,7 +1344,7 @@ id_replace <- function(string) {
   out
 }
 
-# _ sleep segments ----
+# _ BED/Sleep segments ----
 df_analysis4_RemOut %>%
   #filter(source_combination != "ears_actilife") %>%
   dplyr::mutate(
@@ -1100,28 +1353,34 @@ df_analysis4_RemOut %>%
                     ifelse(source == "ears", 0, -.2)), # if diary, then .2, otherwise if ears then 0, otherwise, -0.2. therefore, diary = 0.2, ears = 0, actilife = -0.2
     ypos = y + adjust,
     source = fct_reorder(source, desc(adjust)),
-    sleep_period_start_onset_hours = sleep_period_start_onset_minutes/60,
-     sleep_period_start_offset_hours = sleep_period_start_offset_minutes/60,
-     sleep_duration_hours = sleep_duration_minutes/60
+    bedtime_onset_hours = bedtime_start_onset_minutes/60,
+    risetime_offset_hours = risetime_start_offset_minutes/60,
+    sleep_onset_hours = sleep_period_start_onset_minutes/60, # diary sleep onset
+    sleep_offset_hours = sleep_period_start_offset_minutes/60 # diary sleep offset
   ) %>%
   ggplot(aes(color = source)) +  
   # ggplot(aes(color = source, shape = factor(day_num))) +
   # scale_shape_manual(values=c(0, 2, 3, 4, 6, 8, 18, 24, 25)) +
-  geom_segment(aes(x = sleep_period_start_onset_hours, xend = sleep_period_start_offset_hours, y = ypos, yend = ypos), alpha = .8) +
-  geom_point(aes(x = sleep_period_start_onset_hours, ypos), alpha = .8) +
-  geom_point(aes(x = sleep_period_start_offset_hours, ypos), alpha = .8) +
+  geom_segment(aes(x = bedtime_onset_hours, xend = risetime_offset_hours, y = ypos, yend = ypos), alpha = .8) +
+  geom_point(aes(x = bedtime_onset_hours, ypos), alpha = .8) +
+  geom_point(aes(x = risetime_offset_hours, ypos), alpha = .8) +  
+  geom_point(aes(x = sleep_onset_hours, ypos), alpha = .5, shape = "triangle", color = "purple") + # diary sleep onset
+  geom_point(aes(x = sleep_offset_hours, ypos), alpha = .5, shape = "triangle", color = "purple") + # diary sleep offset    
   theme_minimal() +
   facet_wrap(actilife_id ~ ., labeller = labeller(actilife_id = id_replace)) +
-  labs(title = "Supplemental Figure 4. Detected Sleep Onset to Offset by Source",
+  labs(title = "Supplemental Figure 4. Detected Bedtime/Sleep Onset to Risetime/Sleep Offset by Source",
        x = "Time of Day (hours)",
        y = "Day",
-       col = "") +
+       col = "Source") +
   theme(legend.position = "bottom",
         axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(face = "bold", size = 10),
         facet_wrap) +
-  scale_color_manual(values = c("#E69F00", "#56B4E9", "#999999")) +
+  scale_color_manual(values = c("#E69F00", "#56B4E9", "#999999"), labels = c('Diary','EARS','ActiGraph')) +
   scale_x_continuous(breaks = seq(-10,24, by = 6), labels = c("14", "20", "2", "8", "14", "20"))
+ggsave("SupplementalFig5.tiff", width = 7, height = 9)
+
+
 ```
 
 # Bland-Altman Plots
@@ -1129,11 +1388,11 @@ df_analysis4_RemOut %>%
 fig_ears <- 
   df_analysis_wide3_RemOut %>%  
   filter(sample_1_flag == 1) %>% 
-  ggplot(aes(x = sleep_period_start_onset_avg_diary_ears, y = sleep_onset_diff_min_diary_ears)) +
+  ggplot(aes(x = bedtime_start_onset_avg_diary_ears, y = bedtime_diff_min_diary_ears)) +
   geom_point(alpha = 0.6, size = 2, aes(col = actilife_id)) +
-  geom_hline(yintercept = mean(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm = TRUE), colour = "black", linewidth = 0.5) +
-  geom_hline(yintercept = mean(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm = TRUE) - (1.96 * sd(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm = TRUE)), colour = "black", linewidth = 0.5, linetype = "dashed") +
-  geom_hline(yintercept = mean(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm = TRUE) + (1.96 * sd(df_analysis_wide3_RemOut$sleep_onset_diff_min_diary_ears, na.rm = TRUE)), colour = "black", linewidth = 0.5, linetype = "dashed") +
+  geom_hline(yintercept = mean(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm = TRUE), colour = "black", linewidth = 0.5) +
+  geom_hline(yintercept = mean(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm = TRUE) - (1.96 * sd(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm = TRUE)), colour = "black", linewidth = 0.5, linetype = "dashed") +
+  geom_hline(yintercept = mean(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm = TRUE) + (1.96 * sd(df_analysis_wide3_RemOut$bedtime_diff_min_diary_ears, na.rm = TRUE)), colour = "black", linewidth = 0.5, linetype = "dashed") +
   labs(title = "EARS", y = "Difference between Diary and EARS Bedtime", x = "Average of Diary and EARS Bedtime") +
   expand_limits(x = c(-100, 200), y = c(-250, 250)) + 
   scale_x_continuous(breaks = seq(-100, 200, by = 100)) +
@@ -1151,150 +1410,82 @@ samp2 <-
 # Diary and EARS: Bedtime
 
 ba_diaryears_onset <- 
-  bland.altman.plot(samp1$sleep_period_start_onset_minutes_diary, samp1$sleep_period_start_onset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
-ba_diaryears_onset$layers[[2]]$aes_params$colour <- c('red', 'gray', 'red')
+  bland.altman.plot(samp1$bedtime_start_onset_minutes_diary, samp1$bedtime_start_onset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
+ba_diaryears_onset$layers[[2]]$aes_params$colour <- c('#CC79A7', 'gray', '#CC79A7')
+ba_diaryears_onset$layers[[2]]$aes_params$linetype <- c('solid', 'solid', 'solid')
 ba_diaryears_onset + ggtitle("EARS compared to Diary Bedtime")
-bland.altman.stats(samp1$sleep_period_start_onset_minutes_diary, samp1$sleep_period_start_onset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+bland.altman.stats(samp1$bedtime_start_onset_minutes_diary, samp1$bedtime_start_onset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+#### association between mean and difference
+summary(lmer(bedtime_diff_min_diary_ears ~ bedtime_start_onset_avg_diary_ears + (1|actilife_id), data = samp1))
+
 
 # Diary and EARS: Rise Time
 ba_diaryears_offset <- 
-  bland.altman.plot(samp1$sleep_period_start_offset_minutes_diary, samp1$sleep_period_start_offset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
-ba_diaryears_offset$layers[[2]]$aes_params$colour <- c('red', 'gray', 'red')
+  bland.altman.plot(samp1$risetime_start_offset_minutes_diary, samp1$risetime_start_offset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
+ba_diaryears_offset$layers[[2]]$aes_params$colour <- c('#CC79A7', 'gray', '#CC79A7')
+ba_diaryears_offset$layers[[2]]$aes_params$linetype <- c('solid', 'solid', 'solid')
 ba_diaryears_offset + ggtitle("EARS compared to Diary Rise Time")
-bland.altman.stats(samp1$sleep_period_start_offset_minutes_diary, samp1$sleep_period_start_offset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+bland.altman.stats(samp1$risetime_start_offset_minutes_diary, samp1$risetime_start_offset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+#### association between mean and difference
+summary(lmer(risetime_diff_min_diary_ears ~ risetime_start_offset_avg_diary_ears + (1|actilife_id), data = samp1))
 
 
 # Diary and EARS: TIme in Bed
 ba_diaryears_dur <- 
-  bland.altman.plot(samp1$sleep_duration_minutes_diary, samp1$sleep_duration_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
-ba_diaryears_dur$layers[[2]]$aes_params$colour <- c('red', 'gray', 'red')
+  bland.altman.plot(samp1$time_in_bed_minutes_diary, samp1$time_in_bed_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
+ba_diaryears_dur$layers[[2]]$aes_params$colour <- c('#CC79A7', 'gray', '#CC79A7')
+ba_diaryears_dur$layers[[2]]$aes_params$linetype <- c('solid', 'solid', 'solid')
 ba_diaryears_dur + ggtitle("EARS compared to Diary Time in Bed")
-bland.altman.stats(samp1$sleep_duration_minutes_diary, samp1$sleep_duration_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+bland.altman.stats(samp1$time_in_bed_minutes_diary, samp1$time_in_bed_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+#### association between mean and difference
+summary(lmer(time_in_bed_minutes_diff_min_diary_ears ~ time_in_bed_minutes_avg_diary_ears + (1|actilife_id), data = samp1))
 
 # Act and EARS: Bedtime
 
 ba_actears_onset <- 
-  bland.altman.plot(samp2$sleep_period_start_onset_minutes_actilife, samp2$sleep_period_start_onset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
-ba_actears_onset$layers[[2]]$aes_params$colour <- c('red', 'gray', 'red')
+  bland.altman.plot(samp2$bedtime_start_onset_minutes_actilife, samp2$bedtime_start_onset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
+ba_actears_onset$layers[[2]]$aes_params$colour <- c('#CC79A7', 'gray', '#CC79A7')
+ba_actears_onset$layers[[2]]$aes_params$linetype <- c('solid', 'solid', 'solid')
 ba_actears_onset + ggtitle("EARS compared to ActiGraph Bedtime")
-bland.altman.stats(samp2$sleep_period_start_onset_minutes_actilife, samp2$sleep_period_start_onset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+bland.altman.stats(samp2$bedtime_start_onset_minutes_actilife, samp2$bedtime_start_onset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+#### association between mean and difference
+summary(lmer(bedtime_diff_min_actilife_ears ~ bedtime_start_onset_avg_actilife_ears + (1|actilife_id), data = samp2))
 
 # Act and EARS: Rise Time
 ba_actears_offset <- 
-  bland.altman.plot(samp2$sleep_period_start_offset_minutes_actilife, samp2$sleep_period_start_offset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
-ba_actears_offset$layers[[2]]$aes_params$colour <- c('red', 'gray', 'red')
+  bland.altman.plot(samp2$risetime_start_offset_minutes_actilife, samp2$risetime_start_offset_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
+ba_actears_offset$layers[[2]]$aes_params$colour <- c('#CC79A7', 'gray', '#CC79A7')
+ba_actears_offset$layers[[2]]$aes_params$linetype <- c('solid', 'solid', 'solid')
 ba_actears_offset + ggtitle("EARS compared to ActiGraph Rise Time")
-bland.altman.stats(samp2$sleep_period_start_offset_minutes_actilife, samp2$sleep_period_start_offset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+bland.altman.stats(samp2$risetime_start_offset_minutes_actilife, samp2$risetime_start_offset_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+#### association between mean and difference
+summary(lmer(risetime_diff_min_actilife_ears ~ risetime_start_offset_avg_actilife_ears + (1|actilife_id), data = samp2))
 
 
 # Act and EARS: Time in Bed
 ba_actears_dur <- 
-  bland.altman.plot(samp2$sleep_duration_minutes_actilife, samp2$sleep_duration_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
-ba_actears_dur$layers[[2]]$aes_params$colour <- c('red', 'gray', 'red')
+  bland.altman.plot(samp2$time_in_bed_minutes_actilife, samp2$time_in_bed_minutes_ears, graph.sys = "ggplot2", conf.int = .95)
+ba_actears_dur$layers[[2]]$aes_params$colour <- c('#CC79A7', 'gray', '#CC79A7')
+ba_actears_dur$layers[[2]]$aes_params$linetype <- c('solid', 'solid', 'solid')
 ba_actears_dur + ggtitle("EARS compared to ActiGraph Time in Bed")
-bland.altman.stats(samp2$sleep_duration_minutes_actilife, samp2$sleep_duration_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+bland.altman.stats(samp2$time_in_bed_minutes_actilife, samp2$time_in_bed_minutes_ears, two = 1.96, mode = 1, conf.int = 0.95)
+#### association between mean and difference
+summary(lmer(time_in_bed_minutes_diff_min_actilife_ears ~ time_in_bed_minutes_avg_actilife_ears + (1|actilife_id), data = samp2))
+
 
 (ba_diaryears_onset + ba_diaryears_offset + ba_diaryears_dur ) /
   (ba_actears_onset + ba_actears_offset + ba_actears_dur ) +
   plot_annotation(title = "",
                   caption = "", tag_levels = 'A')
 
+### looking at correlation between actilife and diary bedtime and tib avg-diff to see if the association between ears and diary bedtime and tib avg-diff could be due to diary misalignment
+summary(lmer(bedtime_diff_min_diary_actilife ~ bedtime_start_onset_avg_diary_actilife + (1|actilife_id), data = samp2))
+summary(lmer(time_in_bed_minutes_diff_min_diary_actilife ~ time_in_bed_minutes_avg_diary_actilife + (1|actilife_id), data = samp2))
 ```
 
-### supplementary
-```{r}
-# _ bland altman ----
+\newpage
 
-# _ _ sleep onset ----
+# References
 
-# using MethodCompare
-df_analysis_sleep_onset_wide_RO <- 
-  df_analysis4_RemOut %>% 
-  dplyr::select(actilife_id, sleep_offset_date, sleep_period_start_onset_minutes, source) %>% 
-  tidyr::spread(source, sleep_period_start_onset_minutes) 
-
-### First seeing whether two variances are equal in sleep onset using scale location plot and Breusch Pagan Test
-sl_onset_de <- plot(lm(diary ~ ears, data = df_analysis_sleep_onset_wide_RO))
-bp_onset_de <- bptest(lm(diary ~ ears, data = df_analysis_sleep_onset_wide_RO)) # variances are *not* equal between diary and ears sleep onset
-
-sl_onset_ae <- plot(lm(actilife ~ ears, data = df_analysis_sleep_onset_wide_RO))
-bp_onset_ae <- bptest(lm(actilife ~ ears, data = df_analysis_sleep_onset_wide_RO)) # variances are equal between actilife and ears sleep onset
-
-# _ _ _ ears ----
-df_methodcompare_RO <- measure_compare(df_analysis_sleep_onset_wide_RO, new = "ears", Ref = "diary", ID = "actilife_id")
-bias_plot(df_methodcompare_RO) # best linear unbiased prediction (BLUP) is used in linear mixed models for the estimation of random effects
-precision_plot(df_methodcompare_RO)
-ba_ears_RO <- bland_altman_plot(df_analysis_sleep_onset_wide_RO, new = "ears", Ref = "diary", ID = "actilife_id", fill = FALSE)
-
-# _ _ _ actilife ----
-df_methodcompare_RO <- measure_compare(df_analysis_sleep_onset_wide_RO, new = "ears", Ref = "actilife", ID = "actilife_id")
-bias_plot(df_methodcompare_RO) 
-precision_plot(df_methodcompare_RO)
-ba_actilife_RO <- bland_altman_plot(df_analysis_sleep_onset_wide_RO, new = "ears", Ref = "actilife", ID = "actilife_id", fill = FALSE)
-
-#### using rmba ####
-source("rmba.R")
-rmba_res <-
-  rmba(
-    data = df_analysis_sleep_onset_wide_RO,
-    measure_one_col = "diary",
-    measure_two_col = "ears",
-    id_col = "actilife_id",
-    bootstrap = TRUE,
-    B = 1000,
-    seed = 123
-    )
-
-# _ _ sleep offset ----
-
-# using MethodCompare
-df_analysis_sleep_offset_wide_RO <- 
-  df_analysis4_RemOut %>% 
-  dplyr::select(actilife_id, sleep_offset_date, sleep_period_start_offset_minutes, source) %>% 
-  tidyr::spread(source, sleep_period_start_offset_minutes)
-
-### First seeing whether two variances are equal in sleep onset using scale location plot and Breusch Pagan Test
-sl_offset_de <- plot(lm(diary ~ ears, data = df_analysis_sleep_offset_wide_RO))
-bp_offset_de <- bptest(lm(diary ~ ears, data = df_analysis_sleep_offset_wide_RO)) # variances are equal between diary and ears sleep offset
-
-sl_offset_ae <- plot(lm(actilife ~ ears, data = df_analysis_sleep_offset_wide_RO))
-bp_offset_ae <- bptest(lm(actilife ~ ears, data = df_analysis_sleep_offset_wide_RO)) # variances are equal between actilife and ears sleep offset
-
-# _ _ _ ears ----
-df_methodcompare_RO <- measure_compare(df_analysis_sleep_offset_wide_RO, new = "ears", Ref = "diary", ID = "actilife_id" )
-bias_plot(df_methodcompare_RO) 
-precision_plot(df_methodcompare_RO)
-ba_ears_RO <- bland_altman_plot(df_analysis_sleep_offset_wide_RO, new = "ears", Ref = "diary", ID = "actilife_id", fill = FALSE)
-
-# _ _ _ actilife ----
-df_methodcompare_RO <- measure_compare(df_analysis_sleep_offset_wide_RO, new = "actilife", Ref = "diary", ID = "actilife_id" )
-bias_plot(df_methodcompare_RO) 
-precision_plot(df_methodcompare_RO)
-ba_actilife_RO <- bland_altman_plot(df_analysis_sleep_offset_wide_RO, new = "ears", Ref = "actilife", ID = "actilife_id", fill = FALSE)
-
-
-# _ _ sleep duration ----
-# using MethodCompare
-df_analysis_sleep_duration_wide_RO <- 
-  df_analysis4_RemOut %>% 
-  dplyr::select(actilife_id, sleep_offset_date, sleep_duration_minutes, source) %>% 
-  tidyr::spread(source, sleep_duration_minutes)
-
-### First seeing whether two variances are equal in sleep onset using scale location plot and Breusch Pagan Test
-sl_dur_de <- plot(lm(diary ~ ears, data = df_analysis_sleep_duration_wide_RO))
-bp_dur_de <- bptest(lm(diary ~ ears, data = df_analysis_sleep_duration_wide_RO)) # variances are equal between diary and ears sleep duration
-
-sl_dur_ae <- plot(lm(actilife ~ ears, data = df_analysis_sleep_duration_wide_RO))
-bp_dur_ae <- bptest(lm(actilife ~ ears, data = df_analysis_sleep_duration_wide_RO)) # variances are equal between actilife and ears sleep duration
-
-df_methodcompare_RO <- measure_compare(df_analysis_sleep_duration_wide_RO, new = "ears", Ref = "diary", ID = "actilife_id")
-bias_plot(df_methodcompare_RO) 
-precision_plot(df_methodcompare_RO)
-ba_ears_RO <- bland_altman_plot(df_analysis_sleep_duration_wide_RO, new = "ears", Ref = "diary", ID = "actilife_id", fill = FALSE)
-
-df_methodcompare_RO <- measure_compare(df_analysis_sleep_duration_wide_RO, new = "actilife", Ref = "diary", ID = "actilife_id")
-bias_plot(df_methodcompare_RO) 
-precision_plot(df_methodcompare_RO)
-ba_actilife_RO <- bland_altman_plot(df_analysis_sleep_duration_wide_RO, new = "ears", Ref = "actilife", ID = "actilife_id", fill = FALSE)
-
-```
+::: {#refs custom-style="Bibliography"}
+:::

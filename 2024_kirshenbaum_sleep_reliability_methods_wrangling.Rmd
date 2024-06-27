@@ -53,6 +53,7 @@ library(lme4)
 library(lmerTest)
 library(knitr)
 
+
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 theme_set(theme_bw())
 # Simple function for computing ICC from lme() output
@@ -66,11 +67,11 @@ theme_set(theme_bw(base_size = 12,base_family = "Arial")); theme_update(panel.gr
 ## Reading in files
 
 ```{r, echo=FALSE}
-df_sleep_actilife_path  <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/BatchSleepExportDetails(2020-03-03_14-13-01).csv"
-df_sleep_diary_path <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/sleep_diary.csv"
-df_sleep_ears_path <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/sleep_detection_final.csv"
-df_ears_acc_10sec_path <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/acc_second10_df.csv"
-df_baseline_path  <- "/Users/jackiekirshenbaum/Dropbox/Postdoc/15_Sleep_metrics_reliability/Melissa/Raw_Baseline_Data.csv"
+df_sleep_ears_path <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/data_from_Ryann/reliability_paper/ears/sleep_detection_final.csv"
+df_sleep_actilife_path  <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/data_from_Ryann/reliability_paper/actilife/Batch/BatchSleepExportDetails(2020-03-03_14-13-01).csv"
+df_sleep_diary_path <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/data_from_Ryann/reliability_paper/sleep_diary/sleep_diary.csv"
+df_ears_acc_10sec_path <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/data_from_Ryann/reliability_paper/ears/acc_second10_df.csv"
+df_baseline_path  <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/Melissa/Raw_Baseline_Data.csv"
 ```
 
 # Wrangling
@@ -85,19 +86,20 @@ df_sleep_actilife <-
   janitor::clean_names() %>% 
   dplyr::mutate(
     actilife_id = str_remove(file_name, "60sec.agd"),
-    sleep_onset_timestamp = mdy_hms(in_bed_time),
-    sleep_offset_timestamp = mdy_hms(out_bed_time),
-    sleep_duration_minutes = total_sleep_time,
-    sleep_onset_timestamp = as.character(sleep_onset_timestamp),
-    sleep_offset_timestamp = as.character(sleep_offset_timestamp),
-    sleep_offset_date = as_date(sleep_offset_timestamp)
-  ) %>% 
+    bedtime_timestamp = mdy_hms(in_bed_time), # sleep_onset_timestamp -> bedtime_timestamp
+    risetime_timestamp = mdy_hms(out_bed_time), # sleep_offset_timestamp -> risetime_timestamp
+    time_in_bed_minutes = lubridate::interval(bedtime_timestamp, risetime_timestamp),
+    time_in_bed_minutes = time_length(time_in_bed_minutes, "minutes"), # this is actually same as total_sleep_time in the dataframe
+    bedtime_timestamp = as.character(bedtime_timestamp),
+    risetime_timestamp = as.character(risetime_timestamp),
+    risetime_date = as_date(risetime_timestamp)
+  ) %>%
   dplyr::select(
     actilife_id,
-    sleep_offset_date,
-    sleep_onset_timestamp,
-    sleep_offset_timestamp,
-    sleep_duration_minutes
+    risetime_date,
+    bedtime_timestamp,
+    risetime_timestamp,
+    time_in_bed_minutes
   )
 
 rm(df_sleep_actilife_path)
@@ -112,18 +114,18 @@ num_pts <- df_sleep_actilife %>%
 # explore cases for duplicate values
 sum_explore <-
   df_sleep_actilife %>%
-  dplyr::group_by(actilife_id, sleep_offset_date) %>%
+  dplyr::group_by(actilife_id, risetime_date) %>%
   dplyr::summarise(
     n = n(), # num of entries
     # within each ID and date, finding the earliest (min) and latest (max) time to determine which entry to use
-    sleep_onset_timestamp_min = min(sleep_onset_timestamp), 
-    sleep_offset_timestamp_min = min(sleep_offset_timestamp),
-    sleep_onset_timestamp_max = max(sleep_onset_timestamp),
-    sleep_offset_timestamp_max = max(sleep_offset_timestamp)
+    bedtime_timestamp_min = min(bedtime_timestamp), 
+    risetime_timestamp_min = min(risetime_timestamp),
+    bedtime_timestamp_max = max(bedtime_timestamp),
+    risetime_timestamp_max = max(risetime_timestamp)
     ) %>%
   filter(n > 1) %>% # identifying those with duplicate values
   dplyr::ungroup() %>%
-  dplyr::mutate(gap_min = difftime(sleep_onset_timestamp_max, sleep_offset_timestamp_min, units = "min")) # computing minutes btwn onset and offset to determine what is sleep and what might be a nap
+  dplyr::mutate(gap_min = difftime(bedtime_timestamp_max, risetime_timestamp_min, units = "min")) # computing minutes btwn onset and offset to determine what is sleep and what might be a nap
 
 
 # drop duplicates that appear to be midday naps (keeping sleep period of longest duration, which also coincides during the evening)
@@ -133,9 +135,9 @@ df_sleep_actilife2 <-
   dplyr::mutate(
     drop_flag = 0,
     drop_flag =
-      ifelse( # ***ASK RYANN WHY THESE ARE THE ONLY TWO GIVEN OTHER DUPLICATES***" A screening of the data identified two records as potential "naps", to be deleted and the rest of the cases that appeared to be sleep interruptions.  After hard coding 2 "nap" records to be removed, the remaining records get reduced to one as the code consolidates across the sleep interruptions by selecting the earliest (min) sleep onset and latest (max) sleep offset.)
-        (actilife_id == "ae1365" & sleep_onset_timestamp == "2018-10-23 14:03:00") | # removing the ones that looks like a midday nap based on onset and duration
-          (actilife_id == "jm8103" & sleep_onset_timestamp == "2018-10-24 19:02:00"),
+      ifelse( # A screening of the data identified two records as potential "naps", to be deleted and the rest of the cases that appeared to be sleep interruptions.  After hard coding 2 "nap" records to be removed, the remaining records get reduced to one as the code consolidates across the sleep interruptions by selecting the earliest (min) sleep onset and latest (max) sleep offset.)
+        (actilife_id == "ae1365" & bedtime_timestamp == "2018-10-23 14:03:00") | # removing the ones that looks like a midday nap based on onset and duration
+          (actilife_id == "jm8103" & bedtime_timestamp == "2018-10-24 19:02:00"),
         1, 0
         )
   ) %>%
@@ -145,19 +147,19 @@ df_sleep_actilife2 <-
 
 df_sleep_actilife3 <-
   df_sleep_actilife2 %>%
-  dplyr::group_by(actilife_id, sleep_offset_date) %>%
+  dplyr::group_by(actilife_id, risetime_date) %>%
   dplyr::summarise(
     # within each ID and wake-up date, identifying sleep onset as the earliest time and sleep offest as the latest time to find the greatest difference in times
-    sleep_onset_timestamp = min(sleep_onset_timestamp),
-    sleep_offset_timestamp = max(sleep_offset_timestamp),
+    bedtime_timestamp = min(bedtime_timestamp),
+    risetime_timestamp = max(risetime_timestamp),
   ) %>%
   dplyr::ungroup() %>%
   dplyr::mutate(
     # actilife sleep duration
-    sleep_duration_minutes = as.numeric(difftime(sleep_offset_timestamp, sleep_onset_timestamp, units = "min")),
+    time_in_bed_minutes = as.numeric(difftime(risetime_timestamp, bedtime_timestamp, units = "min")),
     source = "actilife",
   ) %>%
-  dplyr::select(-sleep_offset_date)
+  dplyr::select(-risetime_date)
 
 
 # number of participants we end with
@@ -165,15 +167,15 @@ num_pts <- df_sleep_actilife3 %>%
   dplyr::group_by(actilife_id) %>%
   dplyr::summarise(
     n = n()
-  ) # 18 participants, 114 observations; however will remove one who wore the watch for one day.
+  ) 
 ```
 
 ```{r}
-kable(skim(df_sleep_actilife3))
+skim(df_sleep_actilife3)
 ```
 
 
-A subset of participants ( _n_ =19) were randomly selected to wear an actigraph (Actigraph wGT3x-BT triaxial accelerometer; ActiGraph LLC, Pensacola, FL) for the baseline week of the study. Actigraphs are worn on the wrist and are the approximate size of a wristwatch. They capture a number of metrics related to the length and quality of sleep, including ambient light, total sleep time, sleep onset latency, and wake time after sleep onset. One participant did not consent to wear the watch; thus, 18 participants provided data (n=132 observations). After removing two observations identified as "naps" and consolidating across the sleep interruptions by selecting the earliest (min) sleep onset and latest (max) sleep offset, 114 observations from 18 participants were considered for analysis.
+A subset of participants ( _n_ =18) consented to wear the watch After removing two observations identified as "naps" and consolidating across the sleep interruptions by selecting the earliest (min) sleep onset and latest (max) sleep offset, 114 observations from 18 participants were considered for analysis.
 
 ## Diary
 
@@ -182,47 +184,78 @@ df_sleep_diary <-
   read_csv(df_sleep_diary_path) %>%
   dplyr::mutate_if(is.POSIXct, as.character) %>%
   
-  # data cleaning - adding or subtracting 12hours (***ASK RYANN WHY ADDING/SUBTRACTING 12 HRS***; The code was utilized to correct erroneous entries for AM/PM, with one record correcting for both calendar date and reassigning AM to PM, such as ae1365 with date_start of 2018-10-21)
+  # data cleaning - adding or subtracting 12hours; the code was utilized to correct erroneous entries for AM/PM, with one record correcting for both calendar date and reassigning AM to PM, such as ae1365 with date_start of 2018-10-21)
   dplyr::mutate(
     # fixing dates and times for those that didn't convert sleep onset to 24-hour clock
     diary_sleep_onset = ifelse((participant_id == "ae1365" & diary_sleep_onset == "2018-10-22 11:30:00"), "2018-10-21 11:30:00", diary_sleep_onset),
+    diary_bed_onset = ifelse((participant_id == "ae1365" & diary_bed_onset == "2018-10-22 11:30:00"), "2018-10-21 11:30:00", diary_bed_onset),
+    
     diary_sleep_onset = ifelse((participant_id == "ls7319" & diary_sleep_onset == "2018-10-18 11:00:00"), "2018-10-17 23:00:00", diary_sleep_onset),
+    diary_bed_onset = ifelse((participant_id == "ls7319" & diary_bed_onset == "2018-10-18 10:30:00"), "2018-10-17 22:30:00", diary_bed_onset),
+    
     diary_sleep_onset = ifelse((participant_id == "bh2693" & diary_sleep_onset == "2018-10-15 10:10:00"), "2018-10-14 22:10:00", diary_sleep_onset),
+    diary_bed_onset = ifelse((participant_id == "bh2693" & diary_bed_onset == "2018-10-15 09:30:00"), "2018-10-14 21:30:00", diary_bed_onset),
+    
     diary_sleep_onset = ifelse((participant_id == "ae1365" & diary_sleep_onset == "2018-10-21 11:30:00"), "2018-10-21 23:30:00", diary_sleep_onset),
+    diary_bed_onset = ifelse((participant_id == "ae1365" & diary_bed_onset == "2018-10-21 11:30:00"), "2018-10-21 23:30:00", diary_bed_onset),
+    
     # fixing dates and times for those that didn't convert sleep offset to 24-hour clock
     diary_sleep_offset = ifelse((participant_id == "ks8282" & diary_sleep_offset == "2018-10-05 19:30:00"), "2018-10-05 07:30:00", diary_sleep_offset),
+    diary_bed_offset = ifelse((participant_id == "ks8282" & diary_bed_offset == "2018-10-05 19:35:00"), "2018-10-05 07:35:00", diary_bed_offset),    
+    
     diary_sleep_offset = ifelse((participant_id == "jm8103" & diary_sleep_offset == "2018-10-26 20:30:00"), "2018-10-26 08:30:00", diary_sleep_offset),
+    diary_bed_offset = ifelse((participant_id == "jm8103" & diary_bed_offset == "2018-10-26 20:30:00"), "2018-10-26 08:30:00", diary_bed_offset),
+    
     diary_sleep_offset = ifelse((participant_id == "at0565" & diary_sleep_offset == "2018-10-19 20:45:00"), "2018-10-19 08:45:00", diary_sleep_offset),
+    # diary_bed_offset for at0565 seems right (2018-10-19 09:15:00)
+    
     diary_sleep_offset = ifelse((participant_id == "at0565" & diary_sleep_offset == "2018-10-21 20:30:00"), "2018-10-21 08:30:00", diary_sleep_offset),
+    diary_bed_offset = ifelse((participant_id == "at0565" & diary_bed_offset == "2018-10-21 20:30:00"), "2018-10-21 08:30:00", diary_bed_offset),
+    
     diary_sleep_offset = ifelse((participant_id == "gh0416" & diary_sleep_offset == "2018-10-30 00:20:00"), "2018-10-30 12:20:00", diary_sleep_offset),
+    diary_bed_offset = ifelse((participant_id == "gh0416" & diary_bed_offset == "2018-10-30 00:30:00"), "2018-10-30 12:30:00", diary_bed_offset),    
+    
+    diary_bed_onset = ifelse((participant_id == "bh2693" & diary_bed_onset == "2018-10-14 11:00:00"), "2018-10-13 23:00:00", diary_bed_onset),   
+    
+    diary_bed_onset = ifelse((participant_id == "951713430" & diary_bed_onset == "2018-10-16 12:30:00"), "2018-10-17 00:30:00", diary_bed_onset),     
+    
+    diary_bed_onset = ifelse((participant_id == "em6678" & diary_bed_onset == "2018-10-11 12:00:00"), "2018-10-12 00:00:00", diary_bed_onset),     
+    
+    diary_bed_onset = ifelse((participant_id == "tt8746" & diary_bed_onset == "2018-10-13 12:00:00"), "2018-10-14 00:00:00", diary_bed_onset),         
   ) %>%
 
   dplyr::mutate(
     actilife_id = participant_id, # to merge with actilife dataset
     sleep_onset_timestamp = lubridate::as_datetime(diary_sleep_onset),
     sleep_offset_timestamp = lubridate::as_datetime(diary_sleep_offset),
-    sleep_duration_minutes = as.numeric(difftime(sleep_offset_timestamp, sleep_onset_timestamp, units = "mins")), # computing sleep duration minutes
-    bed_onset_timestamp = lubridate::as_datetime(diary_bed_onset),
-    bed_offset_timestamp = lubridate::as_datetime(diary_bed_offset),
-    bed_duration_minutes = as.numeric(difftime(bed_offset_timestamp, bed_onset_timestamp, units = "mins")), # computing bed duration minutes
+    # computing sleep duration minutes
+    sleep_duration_minutes = as.numeric(difftime(sleep_offset_timestamp, sleep_onset_timestamp, units = "mins")), 
+    bedtime_timestamp = lubridate::as_datetime(diary_bed_onset),
+    risetime_timestamp = lubridate::as_datetime(diary_bed_offset),
+    # computing time in bed duration minutes
+    time_in_bed_minutes = as.numeric(difftime(risetime_timestamp, bedtime_timestamp, units = "mins")), 
     source = "diary",
     sleep_onset_timestamp = as.character(sleep_onset_timestamp),
     sleep_offset_timestamp = as.character(sleep_offset_timestamp),
-    sleep_offset_date = as_date(diary_sleep_offset)
+    bedtime_timestamp = as.character(bedtime_timestamp),
+    risetime_timestamp = as.character(risetime_timestamp),    
+    risetime_date = as_date(diary_sleep_offset)
   ) %>%
 
-  dplyr::select(X = ...1 ,
-    #device_id,
+  dplyr::select(
+    X = ...1 ,
+    # device_id,
     actilife_id,
-   # date_start,
+    # date_start,
     sleep_onset_timestamp,
     sleep_offset_timestamp,
-   sleep_duration_minutes,
-    #bed_onset_timestamp,
-    #bed_offset_timestamp,
-    #bed_duration_minutes,
+    sleep_duration_minutes,
+    bedtime_timestamp,
+    risetime_timestamp,
+    time_in_bed_minutes,
     source,
-   sleep_offset_date)
+    risetime_date
+    )
 
 num_pts <- df_sleep_diary %>%
   dplyr::group_by(actilife_id) %>%
@@ -233,15 +266,15 @@ num_pts <- df_sleep_diary %>%
 # explore cases for duplicate values
 sum_explore_diary <-
   df_sleep_diary %>%
-  dplyr::group_by(actilife_id, sleep_offset_date) %>%
+  dplyr::group_by(actilife_id, risetime_date) %>%
   dplyr::summarise(
     n = n(),
     sleep_onset_timestamp_min = min(sleep_onset_timestamp),
     sleep_offset_timestamp_min = min(sleep_offset_timestamp),
     sleep_onset_timestamp_max = max(sleep_onset_timestamp),
     sleep_offset_timestamp_max = max(sleep_offset_timestamp),
-    min_dur = min(sleep_duration_minutes),
-    max_dur = max(sleep_duration_minutes),
+    sleep_min_dur = min(sleep_duration_minutes),
+    sleep_max_dur = max(sleep_duration_minutes),
     min_x = min(X), # first recorded entry
     max_x = max(X) # second recorded entry
   ) %>%
@@ -251,11 +284,11 @@ sum_explore_diary <-
 # select 2nd recorded entry (as it may be a correction)
 df_sleep_diary2 <-
   df_sleep_diary %>%
-  arrange(desc(X), actilife_id, sleep_offset_date) %>% # reordering so that the 2nd recorded entry comes before the 1st entry
-  dplyr::group_by(actilife_id, sleep_offset_date) %>%
+  arrange(desc(X), actilife_id, risetime_date) %>% # reordering so that the 2nd recorded entry comes before the 1st entry
+  dplyr::group_by(actilife_id, risetime_date) %>%
   slice(1) %>% # removes duplicate rows, keeping the 1st entry. A review of the code confirmed the process was selecting a second record, whether the duplicate was a correction or a double entry, when more than one record was available.
   dplyr::ungroup() %>%
-  dplyr::select(-X, -sleep_offset_date)
+  dplyr::select(-X, -risetime_date)
 
 num_pts <- df_sleep_diary2 %>%
   dplyr::group_by(actilife_id) %>%
@@ -268,8 +301,7 @@ num_pts <- df_sleep_diary2 %>%
 #   df_sleep_diary2 %>%  
 #   filter(sleep_duration_minutes >= 60)
 
-
-kable(skim(df_sleep_diary2))
+skim(df_sleep_diary2)
 ```
 
 35 participants provided data ( _n_ =261 observations). After removing 17 observations identified as duplicated entries, `nrow(df_sleep_diary2)` 242 observations from 35 participants were considered for analysis.
@@ -278,27 +310,29 @@ kable(skim(df_sleep_diary2))
 
 ```{r, echo=FALSE,message=FALSE}
 df_sleep_ears <-
-  read_csv(df_sleep_ears_path)  %>%
-  dplyr::mutate_if(is.Date, as.character) %>%
+  read.csv(df_sleep_ears_path,
+           stringsAsFactors = FALSE)  %>%
   dplyr::mutate(
     actilife_id = participant_id,
     timestamp_start = paste(date_start, "00:00:00"),
     timestamp_start_final = as.POSIXct(timestamp_start), # converting to dttm object
     #date_start = as_date(date_start),
-    sleep_onset_timestamp = as.character(timestamp_start_final + seconds(sleep_onset_numeric)),
-    sleep_offset_timestamp = as.character(timestamp_start_final + seconds(sleep_offset_numeric)),
-    sleep_duration_minutes = sleep_duration_hours * 60,
+    bedtime_timestamp = as.character(timestamp_start_final + seconds(sleep_onset_numeric)),
+    risetime_timestamp = as.character(timestamp_start_final + seconds(sleep_offset_numeric)),
+    time_in_bed_minutes = sleep_duration_hours * 60,
     #day_id = day,
     source = "ears"
   ) %>%
-  dplyr::select(#device_id,
-         actilife_id,
-       #  date_start,
-        # day_id,
-         sleep_onset_timestamp,
-         sleep_offset_timestamp,
-       sleep_duration_minutes,
-         source)
+  dplyr::select(
+    # device_id,
+    actilife_id,
+    # date_start,
+    # day_id,
+    bedtime_timestamp,
+    risetime_timestamp,
+    time_in_bed_minutes,
+    source
+    )
 
 rm(df_sleep_ears_path)
 
@@ -308,7 +342,7 @@ num_pts <- df_sleep_ears %>%
     n = n()
   ) # 31 participants (n=193 observations)
 
-kable(skim(df_sleep_ears))
+skim(df_sleep_ears)
 ```
 
 
@@ -323,7 +357,7 @@ df_sleep <-
 
 df_sleep2 <-
   df_sleep %>%
-  dplyr::mutate(sleep_offset_date = date(sleep_offset_timestamp))
+  dplyr::mutate(risetime_date = date(risetime_timestamp))
 
 rm(df_sleep_actilife, df_sleep_diary, df_sleep_ears)
 ```
@@ -336,19 +370,19 @@ rm(df_sleep_actilife, df_sleep_diary, df_sleep_ears)
 # fyi, not all partcipant have all types of sleep data (ears, actilife, diary), so using the min (first sleep offset date) across all three sources
 # sleep_offset_date_min will be used to create a sleep period id (i.e., day number) to standardize the sleep periods across all three sources
 
-df_sleep_offset_date_min <-
+df_risetime_date_min <-
   df_sleep2 %>%
-  dplyr::mutate(sleep_offset_date = date(sleep_offset_timestamp)) %>%
+  dplyr::mutate(risetime_date = date(risetime_timestamp)) %>%
   dplyr::group_by(actilife_id) %>%
-  dplyr::summarise(sleep_offset_date_min = min(sleep_offset_date)) %>%
+  dplyr::summarise(risetime_date_min = min(risetime_date)) %>%
   dplyr::ungroup() %>%
-  dplyr::select(actilife_id, sleep_offset_date_min)
+  dplyr::select(actilife_id, risetime_date_min)
 
 
 # merge min sleep offset date to dataset
 df_sleep3 <- 
   df_sleep2 %>% 
-  left_join(df_sleep_offset_date_min, by = c("actilife_id"))
+  left_join(df_risetime_date_min, by = c("actilife_id"))
 
 #rm(df_sleep_offset_date_min)
 
@@ -357,11 +391,11 @@ df_sleep3 <-
 
 df_sleep4 <-
   df_sleep3 %>%
-  dplyr::mutate(day_num = as.numeric(sleep_offset_date - sleep_offset_date_min, units = "days")) %>%
-  dplyr::select(-sleep_offset_date_min)
+  dplyr::mutate(day_num = as.numeric(risetime_date - risetime_date_min, units = "days")) %>%
+  dplyr::select(-risetime_date_min)
 
 
-# df_participant_list ----
+# df_participant_list: to get ID and device ID
 # based off of records in sleep diary
 df_participant_list <-
   read_csv(df_sleep_diary_path) %>%
@@ -408,7 +442,6 @@ df_analysis_sum_32 <-
     n_sources = n()
   ) %>%
   filter(n_sources > 1) # can see that for some participants, all sources don't align with the same number of days
-write_csv(df_analysis_sum_32, "participant_list_n32.csv")  
 
 df_analysis_sum_32 %>%
   dplyr::summarise(
@@ -426,8 +459,7 @@ df_analysis_sum_32_sources_per_day <-
 
 ```
 
-32 participants have at least 2 sources of data; 14 participants have all 3 sources of data.
-34 participants have at least 1 source of data;
+34 participants have at least 1 source of data; 32 participants have at least 2 sources of data.
 
 However, not all participants with multiple sources had all sources of measurement on the same days. Across 32 participants, 188 observations of at least 2 sources recorded on the same day.
 
@@ -562,16 +594,21 @@ ears_act_num_pts <-
   distinct() # 2 pts with ears and actilife data concurrently
 
 
-# converting variable types and converting sleep onset and offset times into minutes from midnight
+# converting variable types and converting bedtimes and risetimes into minutes from midnight
 df_analysis3 <-
   df_analysis2 %>%
   dplyr::mutate(
+    risetime_date = date(risetime_timestamp),
     sleep_onset_timestamp = lubridate::as_datetime(sleep_onset_timestamp),
     sleep_offset_timestamp = lubridate::as_datetime(sleep_offset_timestamp),
-    sleep_offset_date = date(sleep_offset_timestamp),
-    sleep_period_start_timestamp = lubridate::as_datetime(paste(sleep_offset_date, "00:00:00")),
+    sleep_period_start_timestamp = lubridate::as_datetime(paste(risetime_date, "00:00:00")),
     sleep_period_start_onset_minutes = as.numeric(difftime(sleep_onset_timestamp, sleep_period_start_timestamp, units = "mins")),
-    sleep_period_start_offset_minutes = as.numeric(difftime(sleep_offset_timestamp, sleep_period_start_timestamp, units = "mins"))
+    sleep_period_start_offset_minutes = as.numeric(difftime(sleep_offset_timestamp, sleep_period_start_timestamp, units = "mins")),
+    bedtime_timestamp = lubridate::as_datetime(bedtime_timestamp),
+    risetime_timestamp = lubridate::as_datetime(risetime_timestamp),
+    bedtime_start_timestamp = lubridate::as_datetime(paste(risetime_date, "00:00:00")),
+    bedtime_start_onset_minutes = as.numeric(difftime(bedtime_timestamp, bedtime_start_timestamp, units = "mins")),
+    risetime_start_offset_minutes = as.numeric(difftime(risetime_timestamp, bedtime_start_timestamp, units = "mins"))    
   )
 
 # df_analysis_wide ----
@@ -586,7 +623,12 @@ df_analysis_wide <-
       "sleep_offset_timestamp",
       "sleep_duration_minutes",
       "sleep_period_start_onset_minutes",
-      "sleep_period_start_offset_minutes"
+      "sleep_period_start_offset_minutes",
+      "bedtime_timestamp",
+      "risetime_timestamp",
+      "time_in_bed_minutes",
+      "bedtime_start_onset_minutes",
+      "risetime_start_offset_minutes"      
     ),
     names_sep = "_"
   )
@@ -732,7 +774,7 @@ df_demo <-
         TRUE ~ psqi_comp_3_sleep_duration_pastmonth
       )
   )
-library(chron)
+
 df_demo <-
   df_demo %>%
   dplyr::mutate(
@@ -754,7 +796,7 @@ df_demo <-
    dplyr::select(
      actilife_id, psqi_1_gone_to_bed_timestamp, psqi_1_gone_to_bed_timestamp_hms, wakeup_timestamp, psqi_3_wakeup_timestamp, psqi_3_wakeup_timestamp_hms, everything()
    )
-library(lubridate)
+
 df_demo <-
   df_demo %>%
   dplyr::mutate(
@@ -910,7 +952,7 @@ df_demo <-
 df_demo <-
   df_demo %>%
   dplyr::select(
-    actilife_id, age, sex, gender, race, ethnicity, psqi_comp_1_subj_sleep_quality_pastmonth, psqi_comp2_sleep_latency_pastmonth, psqi_comp_3_sleep_duration_pastmonth, psqi_comp_4_sleep_efficiency_pastmonth, psqi_comp_5_sleep_disturb_pastmonth, psqi_comp_6_sleep_med_pastmonth, psqi_comp_7_daytime_dysfunc_pastmonth 
+    actilife_id, age, sex, gender, race, ethnicity, psqi_1_gone_to_bed_timestamp_hms, psqi_3_wakeup_timestamp_hms, psqi_comp_1_subj_sleep_quality_pastmonth, psqi_comp2_sleep_latency_pastmonth, psqi_comp_3_sleep_duration_pastmonth, psqi_comp_4_sleep_efficiency_pastmonth, psqi_comp_5_sleep_disturb_pastmonth, psqi_comp_6_sleep_med_pastmonth, psqi_comp_7_daytime_dysfunc_pastmonth 
   ) %>%
   dplyr::mutate_at(vars(matches("psqi_comp")), as.numeric) %>%
   dplyr::mutate(
@@ -926,7 +968,7 @@ df_demo <-
 # internal consistency
 psqi_alpha <- 
   df_demo %>%
-  dplyr::select(actilife_id, starts_with("psqi"), -psqi_global_score, -actilife_id)
+  dplyr::select(actilife_id, starts_with("psqi"), -psqi_global_score, -psqi_1_gone_to_bed_timestamp_hms, -psqi_3_wakeup_timestamp_hms, -actilife_id)
 library(psych)
 alpha(psqi_alpha, check.keys = TRUE)
 ```   
@@ -957,6 +999,7 @@ df_demo <-
 
 ### Merging demo
 ```{r}
+only_diary_ids <- c("vh2540", "bh2693", "ab3410") # ids with no concurrent diary - ears/act data
 df_analysis_wide_demo <-
   left_join(
     df_analysis_wide, df_demo, by = "actilife_id"
@@ -967,23 +1010,29 @@ df_analysis_wide_demo <-
   ) %>%
   ungroup()
 
-df_analysis_wide_demo <-
+df_analysis_wide_demox <-
   left_join(
-    df_analysis2, df_analysis_wide_demo, by = c("actilife_id", "device_id", "sleep_offset_date", "day_num", "n_sources_per_person_per_day")
+    df_analysis3, df_analysis_wide_demo, by = c("actilife_id", "device_id", "risetime_date", "day_num", "n_sources_per_person_per_day")
   ) %>%
-  dplyr::select(
-    actilife_id, age, sex, gender, Race, Ethnicity, n_days, source_combination, psqi_global_score, sleep_type
-  ) %>%
+  dplyr::select(actilife_id, age, sex, gender, Race, Ethnicity, n_days, source_combination, starts_with("psqi_")) %>%
   distinct() %>%
-  drop_na(source_combination) 
-  
+  drop_na(source_combination) %>%
+  dplyr::filter(
+    actilife_id != "vh2540"
+  ) %>%
+   dplyr::filter(
+    actilife_id != "bh2693"
+  ) %>% 
+  dplyr::filter(
+    actilife_id != "ab3410"
+  )
 
-df_analysis_wide_demo$sex <- factor(df_analysis_wide_demo$sex, levels = c("Male", "Female"))
-df_analysis_wide_demo$Ethnicity <- factor(df_analysis_wide_demo$Ethnicity, levels = c("Not Hispanic", "Hispanic"))
-df_analysis_wide_demo$Race <- factor(df_analysis_wide_demo$Race, levels = c("African American/Black", "Asian", "More than one race", "White", "Unknown/Not reported"))
+df_analysis_wide_demox$sex <- factor(df_analysis_wide_demox$sex, levels = c("Male", "Female"))
+df_analysis_wide_demox$Ethnicity <- factor(df_analysis_wide_demox$Ethnicity, levels = c("Not Hispanic", "Hispanic"))
+df_analysis_wide_demox$Race <- factor(df_analysis_wide_demox$Race, levels = c("African American/Black", "Asian", "More than one race", "White", "Unknown/Not reported"))
 
-df_analysis_wide_demo <-
-  df_analysis_wide_demo %>%
+df_analysis_wide_demoxx <-
+  df_analysis_wide_demox %>%
   dplyr::mutate(
     Race = as.character(Race),
     Race =
@@ -1000,13 +1049,14 @@ df_analysis_wide_demo <-
       )
   ) %>%
   dplyr::select(-source_combination) %>%
-  distinct()
+  distinct() 
+  
 
 demo_table_full <-
   FullTable1(
-    data = df_analysis_wide_demo,
+    data = df_analysis_wide_demoxx,
     strata = NULL,
-    c("age", "sex", "Race", "Ethnicity", "n_days", "psqi_global_score", "sleep_type"),
+    c("age", "sex", "Race", "Ethnicity", "n_days"),
     stars = "name", html = F)$table
 
 kable(demo_table_full) %>%
@@ -1024,191 +1074,322 @@ kable(demo_table_full) %>%
 ```{r, echo=FALSE}
 df_analysis_wide2 <-
   df_analysis_wide %>%
+  # `sleep_` variables only exist for diary, so removing sleep_period_start_onset_minutes_ears, sleep_period_start_onset_minutes_actilife, sleep_period_start_offset_minutes_ears, sleep_period_start_offset_minutes_actilife, sleep_duration_minutes_ears, sleep_duration_minutes_actilife, sleep_onset_timestamp_ears, sleep_onset_timestamp_actilife, sleep_offset_timestamp_ears, sleep_offset_timestamp_actilife
+  dplyr::select(
+    -c(sleep_period_start_onset_minutes_ears, sleep_period_start_onset_minutes_actilife, sleep_period_start_offset_minutes_ears, sleep_period_start_offset_minutes_actilife, sleep_duration_minutes_ears, sleep_duration_minutes_actilife, sleep_onset_timestamp_ears, sleep_onset_timestamp_actilife, sleep_offset_timestamp_ears, sleep_offset_timestamp_actilife)
+  ) %>%
   dplyr::mutate(
-    # Diary and EARS Sleep Onset Average
-    sleep_period_start_onset_avg_diary_ears =
+    # Diary and EARS Bedtime Average
+    bedtime_start_onset_avg_diary_ears =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_period_start_onset_minutes_ears) &
+      !is.na(bedtime_start_onset_minutes_ears) &
+        !is.na(bedtime_start_onset_minutes_diary)
+      ),
+      (
+      bedtime_start_onset_minutes_ears + bedtime_start_onset_minutes_diary
+    ) / 2,
+    NA
+    )),
+    # Diary and Actilife Bedtime Average
+    bedtime_start_onset_avg_diary_actilife =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(bedtime_start_onset_minutes_actilife) &
+        !is.na(bedtime_start_onset_minutes_diary)
+    ),
+    (
+      bedtime_start_onset_minutes_actilife + bedtime_start_onset_minutes_diary
+    ) / 2,
+    NA
+    )),
+    # EARS and Actilife Bedtime Average
+    bedtime_start_onset_avg_actilife_ears =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(bedtime_start_onset_minutes_actilife) &
+        !is.na(bedtime_start_onset_minutes_ears)
+    ),
+    (
+      bedtime_start_onset_minutes_actilife + bedtime_start_onset_minutes_ears
+    ) / 2,
+    NA
+    )),   
+### Supplementary Diary Sleep Onset and EARS Bedtime Average
+    sleep_and_bedtime_start_onset_avg_diary_ears =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(bedtime_start_onset_minutes_ears) &
         !is.na(sleep_period_start_onset_minutes_diary)
       ),
       (
-      sleep_period_start_onset_minutes_ears + sleep_period_start_onset_minutes_diary
+      bedtime_start_onset_minutes_ears + sleep_period_start_onset_minutes_diary
     ) / 2,
     NA
     )),
-    # Diary and Actilife Sleep Onset Average
-    sleep_period_start_onset_avg_diary_actilife =
+### Supplementary Diary Sleep Onset and Actilife Bedtime Average
+    sleep_and_bedtime_start_onset_avg_diary_actilife =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_period_start_onset_minutes_actilife) &
+      !is.na(bedtime_start_onset_minutes_actilife) &
         !is.na(sleep_period_start_onset_minutes_diary)
     ),
     (
-      sleep_period_start_onset_minutes_actilife + sleep_period_start_onset_minutes_diary
+      bedtime_start_onset_minutes_actilife + sleep_period_start_onset_minutes_diary
     ) / 2,
     NA
     )),
-    # EARS and Actilife Sleep Onset Average
-    sleep_period_start_onset_avg_actilife_ears =
+        
+    # Diary and EARS Risetime Average
+    risetime_start_offset_avg_diary_ears =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_period_start_onset_minutes_actilife) &
-        !is.na(sleep_period_start_onset_minutes_ears)
+      !is.na(risetime_start_offset_minutes_ears) &
+        !is.na(risetime_start_offset_minutes_diary)
     ),
     (
-      sleep_period_start_onset_minutes_actilife + sleep_period_start_onset_minutes_ears
+      risetime_start_offset_minutes_ears + risetime_start_offset_minutes_diary
+    ) / 2,
+    NA
+    )),
+    # Diary and Actilife Risetime Average
+    risetime_start_offset_avg_diary_actilife =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(risetime_start_offset_minutes_actilife) &
+        !is.na(risetime_start_offset_minutes_diary)
+    ),
+    (
+      risetime_start_offset_minutes_actilife + risetime_start_offset_minutes_diary
+    ) / 2,
+    NA
+    )),
+    # EARS and Actilife Risetime Average
+    risetime_start_offset_avg_actilife_ears =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(risetime_start_offset_minutes_actilife) &
+        !is.na(risetime_start_offset_minutes_ears)
+    ),
+    (
+      risetime_start_offset_minutes_actilife + risetime_start_offset_minutes_ears
     ) / 2,
     NA
     )),    
-    # Diary and EARS Sleep Offset Average
-    sleep_period_start_offset_avg_diary_ears =
+### Supplementary Diary Sleep Offset and EARS Risetime Average
+    sleep_and_risetime_start_offset_avg_diary_ears =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_period_start_offset_minutes_ears) &
+      !is.na(risetime_start_offset_minutes_ears) &
         !is.na(sleep_period_start_offset_minutes_diary)
     ),
     (
-      sleep_period_start_offset_minutes_ears + sleep_period_start_offset_minutes_diary
+      risetime_start_offset_minutes_ears + sleep_period_start_offset_minutes_diary
     ) / 2,
     NA
     )),
-    # Diary and Actilife Sleep Offset Average
-    sleep_period_start_offset_avg_diary_actilife =
+### Supplementary Diary Sleep Offset and Actilife Risetime Average
+    sleep_and_risetime_start_offset_avg_diary_actilife =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_period_start_offset_minutes_actilife) &
+      !is.na(risetime_start_offset_minutes_actilife) &
         !is.na(sleep_period_start_offset_minutes_diary)
     ),
     (
-      sleep_period_start_offset_minutes_actilife + sleep_period_start_offset_minutes_diary
+      risetime_start_offset_minutes_actilife + sleep_period_start_offset_minutes_diary
     ) / 2,
     NA
     )),
-    # EARS and Actilife Sleep Offset Average
-    sleep_period_start_offset_avg_actilife_ears =
+
+    # Diary and EARS Time in Bed Average
+    time_in_bed_minutes_avg_diary_ears =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_period_start_offset_minutes_actilife) &
-        !is.na(sleep_period_start_offset_minutes_ears)
+      !is.na(time_in_bed_minutes_ears) &
+        !is.na(time_in_bed_minutes_diary)
     ),
     (
-      sleep_period_start_offset_minutes_actilife + sleep_period_start_offset_minutes_ears
+      time_in_bed_minutes_ears + time_in_bed_minutes_diary
+    ) / 2,
+    NA
+    )),
+    # Diary and Actilife Time in Bed Average
+    time_in_bed_minutes_avg_diary_actilife =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(time_in_bed_minutes_actilife) &
+        !is.na(time_in_bed_minutes_diary)
+    ),
+    (
+      time_in_bed_minutes_actilife + time_in_bed_minutes_diary
+    ) / 2,
+    NA
+    )),
+    # EARS and Actilife Time in Bed Average
+    time_in_bed_minutes_avg_actilife_ears =
+      as.numeric(
+        ifelse(
+          (
+      !is.na(time_in_bed_minutes_actilife) &
+        !is.na(time_in_bed_minutes_ears)
+    ),
+    (
+      time_in_bed_minutes_actilife + time_in_bed_minutes_ears
     ) / 2,
     NA
     )),    
-    # Diary and EARS Sleep Duration Average
-    sleep_duration_minutes_avg_diary_ears =
+### Supplementary Diary Sleep Duration and EARS Time in Bed Average
+    duration_and_time_in_bed_minutes_avg_diary_ears =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_duration_minutes_ears) &
+      !is.na(time_in_bed_minutes_ears) &
         !is.na(sleep_duration_minutes_diary)
     ),
     (
-      sleep_duration_minutes_ears + sleep_duration_minutes_diary
+      time_in_bed_minutes_ears + sleep_duration_minutes_diary
     ) / 2,
     NA
     )),
-    # Diary and Actilife Sleep Duration Average
-    sleep_duration_minutes_avg_diary_actilife =
+### Supplementary Diary Sleep Duration and Actilife Time in Bed Average
+    duration_and_time_in_bed_minutes_avg_diary_actilife =
       as.numeric(
         ifelse(
           (
-      !is.na(sleep_duration_minutes_actilife) &
+      !is.na(time_in_bed_minutes_actilife) &
         !is.na(sleep_duration_minutes_diary)
     ),
     (
-      sleep_duration_minutes_actilife + sleep_duration_minutes_diary
-    ) / 2,
-    NA
-    )),
-    # EARS and Actilife Sleep Duration Average
-    sleep_duration_minutes_avg_actilife_ears =
-      as.numeric(
-        ifelse(
-          (
-      !is.na(sleep_duration_minutes_actilife) &
-        !is.na(sleep_duration_minutes_ears)
-    ),
-    (
-      sleep_duration_minutes_actilife + sleep_duration_minutes_ears
+      time_in_bed_minutes_actilife + sleep_duration_minutes_diary
     ) / 2,
     NA
     )),    
-    # Difference between Diary and EARS Sleep Onset
-    sleep_onset_diff_min_diary_ears =
+    # Difference between Diary and EARS Bedtime
+    bedtime_diff_min_diary_ears =
       as.numeric(
         difftime(
-          sleep_onset_timestamp_diary,
-          sleep_onset_timestamp_ears,
+          bedtime_timestamp_diary,
+          bedtime_timestamp_ears,
           units = "mins"
           )
         ),
-    # Difference between Diary and Actilife Sleep Onset
-    sleep_onset_diff_min_diary_actilife =
+    # Difference between Diary and Actilife Bedtime
+    bedtime_diff_min_diary_actilife =
       as.numeric(
         difftime(
-          sleep_onset_timestamp_diary,
-          sleep_onset_timestamp_actilife,
+          bedtime_timestamp_diary,
+          bedtime_timestamp_actilife,
           units = "mins"
           )
         ),
-    # Difference between Actilife and EARS Sleep Onset
-    sleep_onset_diff_min_actilife_ears =
+    # Difference between Actilife and EARS Bedtime
+    bedtime_diff_min_actilife_ears =
       as.numeric(
         difftime(
-          sleep_onset_timestamp_actilife,
-          sleep_onset_timestamp_ears,
+          bedtime_timestamp_actilife,
+          bedtime_timestamp_ears,
           units = "mins"
           )
         ),    
-    # Difference between Diary and EARS Sleep Offset
-    sleep_offset_diff_min_diary_ears =
+### Supplementary Difference between Diary Sleep Onset and EARS Bedtime
+    sleep_onset_bedtime_diff_min_diary_ears =
       as.numeric(
         difftime(
-          sleep_offset_timestamp_diary,
-          sleep_offset_timestamp_ears,
+          sleep_onset_timestamp_diary,
+          bedtime_timestamp_ears,
           units = "mins"
           )
         ),
-    # Difference between Diary and Actilife Sleep Offset
-    sleep_offset_diff_min_diary_actilife =
+### Supplementary Difference between Diary Sleep Onset and Actilife Bedtime
+    sleep_onset_bedtime_diff_min_diary_actilife =
       as.numeric(
         difftime(
-          sleep_offset_timestamp_diary,
-          sleep_offset_timestamp_actilife,
-          units = "mins"
-          )
-        ),
-    # Difference between Actilife and EARS Sleep Offset
-    sleep_offset_diff_min_actilife_ears =
-      as.numeric(
-        difftime(
-          sleep_offset_timestamp_actilife,
-          sleep_offset_timestamp_ears,
+          sleep_onset_timestamp_diary,
+          bedtime_timestamp_actilife,
           units = "mins"
           )
         ),    
-    # Difference between Diary and EARS Sleep Duration
-    sleep_duration_minutes_diff_min_diary_ears =
-      sleep_duration_minutes_diary - sleep_duration_minutes_ears,
-    # Difference between Diary and Actilife Sleep Duration
-    sleep_duration_minutes_diff_min_diary_actilife =
-      sleep_duration_minutes_diary - sleep_duration_minutes_actilife,
-    # Difference between Actilife and EARS Sleep Duration
-    sleep_duration_minutes_diff_min_actilife_ears =
-      sleep_duration_minutes_actilife - sleep_duration_minutes_ears   
+    
+    # Difference between Diary and EARS Risetime
+    risetime_diff_min_diary_ears =
+      as.numeric(
+        difftime(
+          risetime_timestamp_diary,
+          risetime_timestamp_ears,
+          units = "mins"
+          )
+        ),
+    # Difference between Diary and Actilife Risetime
+    risetime_diff_min_diary_actilife =
+      as.numeric(
+        difftime(
+          risetime_timestamp_diary,
+          risetime_timestamp_actilife,
+          units = "mins"
+          )
+        ),
+    # Difference between Actilife and EARS Risetime
+    risetime_diff_min_actilife_ears =
+      as.numeric(
+        difftime(
+          risetime_timestamp_actilife,
+          risetime_timestamp_ears,
+          units = "mins"
+          )
+        ),  
+    
+### Supplementary Difference between Diary Sleep Offset and EARS Risetime
+    sleep_offset_risetime_diff_min_diary_ears =
+      as.numeric(
+        difftime(
+          sleep_offset_timestamp_diary,
+          risetime_timestamp_ears,
+          units = "mins"
+          )
+        ),
+### Supplementary Difference between Diary Sleep Offset and Actilife Risetime
+    sleep_offset_risetime_diff_min_diary_actilife =
+      as.numeric(
+        difftime(
+          sleep_offset_timestamp_diary,
+          risetime_timestamp_actilife,
+          units = "mins"
+          )
+        ),    
+    
+    # Difference between Diary and EARS Time in Bed
+    time_in_bed_minutes_diff_min_diary_ears =
+      time_in_bed_minutes_diary - time_in_bed_minutes_ears,
+    # Difference between Diary and Actilife Time in Bed
+    time_in_bed_minutes_diff_min_diary_actilife =
+      time_in_bed_minutes_diary - time_in_bed_minutes_actilife,
+    # Difference between Actilife and EARS Time in Bed
+    time_in_bed_minutes_diff_min_actilife_ears =
+      time_in_bed_minutes_actilife - time_in_bed_minutes_ears,
+    
+### Supplementary Difference between Diary Sleep Duration and EARS Time in Bed
+    sleep_dur_time_in_bed_minutes_diff_min_diary_ears =
+      sleep_duration_minutes_diary - time_in_bed_minutes_ears,
+### Supplementary Difference between Diary Sleep Duration and Actilife Time in Bed
+    sleep_dur_time_in_bed_minutes_diff_min_diary_actilife =
+      sleep_duration_minutes_diary - time_in_bed_minutes_actilife,    
     )
 ```
 
-### Sensitivity / Specificity / Accuracy 
+### Sensitivity / Specificity / Accuracy (bedtime and risetime)
+To see whether ears bedtime and risetimes are more/less aligned with diary and act bedtime and risetimes
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 # _ _ _  ears ----
@@ -1218,10 +1399,10 @@ df_analysis_wide2 <-
 
 df_analysis_wide_sample1 <-
   df_analysis_wide2 %>% 
-  filter(!is.na(sleep_period_start_onset_minutes_diary) & 
-  !is.na(sleep_period_start_offset_minutes_diary) & 
-  !is.na(sleep_period_start_onset_minutes_ears) & 
-  !is.na(sleep_period_start_offset_minutes_ears))
+  filter(!is.na(bedtime_start_onset_minutes_diary) & 
+  !is.na(risetime_start_offset_minutes_diary) & 
+  !is.na(bedtime_start_onset_minutes_ears) & 
+  !is.na(risetime_start_offset_minutes_ears))
 
 
 unique_actilife_id <- unique(df_analysis_wide2$actilife_id)
@@ -1231,10 +1412,10 @@ df_sp <- data.frame(minutes = seq(1, 1440, by = 1))
 df_acc_ears <- data.frame(
   actilife_id <- as.character(),
   day_num <- as.character(),
-  true_sleep <- as.character(),
-  false_sleep <- as.character(),
-  true_wake <- as.character(),
-  false_wake <- as.character(),
+  true_bed <- as.character(),
+  false_bed <- as.character(),
+  true_rise <- as.character(),
+  false_rise <- as.character(),
   sensitivity <- as.character(),
   specificity <- as.character(),
   accuracy <- as.character()
@@ -1245,19 +1426,19 @@ for(i in seq_along(unique_actilife_id)){
   df_temp_i <- df_analysis_wide2 %>% 
     filter(
       actilife_id == unique_actilife_id[i] &
-        !is.na(sleep_period_start_onset_minutes_diary) & 
-                 !is.na(sleep_period_start_offset_minutes_diary) & 
-                 !is.na(sleep_period_start_onset_minutes_ears) & 
-                 !is.na(sleep_period_start_offset_minutes_ears))
+        !is.na(bedtime_start_onset_minutes_diary) & 
+                 !is.na(risetime_start_offset_minutes_diary) & 
+                 !is.na(bedtime_start_onset_minutes_ears) & 
+                 !is.na(risetime_start_offset_minutes_ears))
   
   unique_day_num <- unique(df_temp_i$day_num) 
   
   df_epoch_by_epoch <- data.frame(
     day_num <- as.character(),
-    true_sleep <- as.character(),
-    false_sleep <- as.character(),
-    true_wake <- as.character(),
-    false_wake <- as.character(),
+    true_bed <- as.character(),
+    false_bed <- as.character(),
+    true_rise <- as.character(),
+    false_rise <- as.character(),
     sensitivity <- as.character(),
     specificity <- as.character(),
     accuracy <- as.character()
@@ -1269,57 +1450,57 @@ for(i in seq_along(unique_actilife_id)){
 
   #  if(!is.na(df_temp$sleep_period_start_onset_minutes_diary[j]) & !is.na(df_temp$sleep_period_start_onset_minutes_ears[j])){
     
-      df_diary_sleep <- 
+      df_diary_bed <- 
         data.frame(
           minutes = seq(
-            df_temp_i$sleep_period_start_onset_minutes_diary[j],
-            df_temp_i$sleep_period_start_offset_minutes_diary[j],
+            df_temp_i$bedtime_start_onset_minutes_diary[j],
+            df_temp_i$risetime_start_offset_minutes_diary[j],
             by = 1
             ),
-          diary_sleep = 1
+          diary_bed = 1
           )
 
 
-      df_ears_sleep <- 
+      df_ears_bed <- 
         data.frame(
           minutes = seq(
-            round(df_temp_i$sleep_period_start_onset_minutes_ears[j],0),
-            round(df_temp_i$sleep_period_start_offset_minutes_ears[j],0),
+            round(df_temp_i$bedtime_start_onset_minutes_ears[j],0),
+            round(df_temp_i$risetime_start_offset_minutes_ears[j],0),
             by = 1
             ),
-          ears_sleep = 1
+          ears_bed = 1
           )
 
     
 df_temp_j <- 
-  left_join(df_sp, df_diary_sleep, by = c("minutes")) %>% 
-  left_join(df_ears_sleep, by = c("minutes")) %>% mutate(day_num = j)
+  left_join(df_sp, df_diary_bed, by = c("minutes")) %>% 
+  left_join(df_ears_bed, by = c("minutes")) %>% mutate(day_num = j)
 
 
 df_temp_j <-
   df_temp_j %>% 
   dplyr::mutate(
-    true_sleep = as.numeric(ifelse((diary_sleep == 1 & ears_sleep == 1), 1, 0)),
-    false_sleep = as.numeric(ifelse((is.na(diary_sleep) & ears_sleep == 1), 1, 0)),
-    true_wake = as.numeric(ifelse((is.na(diary_sleep) & is.na(ears_sleep)), 1, 0)),
-    false_wake = as.numeric(ifelse((diary_sleep == 1 & is.na(ears_sleep)), 1, 0))
+    true_bed = as.numeric(ifelse((diary_bed == 1 & ears_bed == 1), 1, 0)),
+    false_bed = as.numeric(ifelse((is.na(diary_bed) & ears_bed == 1), 1, 0)),
+    true_rise = as.numeric(ifelse((is.na(diary_bed) & is.na(ears_bed)), 1, 0)),
+    false_rise = as.numeric(ifelse((diary_bed == 1 & is.na(ears_bed)), 1, 0))
     )
 
          
 df_temp_j_agg <- df_temp_j %>% 
   dplyr::group_by(day_num) %>% 
   dplyr::summarise(
-    true_sleep = sum(true_sleep, na.rm = TRUE),
-    false_sleep = sum(false_sleep, na.rm = TRUE),
-    true_wake = sum(true_wake, na.rm = TRUE),
-    false_wake = sum(false_wake, na.rm = TRUE)
+    true_bed = sum(true_bed, na.rm = TRUE),
+    false_bed = sum(false_bed, na.rm = TRUE),
+    true_rise = sum(true_rise, na.rm = TRUE),
+    false_rise = sum(false_rise, na.rm = TRUE)
   ) %>% 
   dplyr::ungroup() %>% 
   dplyr::mutate(
-    ears_sensitivity = true_sleep/(true_sleep + false_sleep),
-    ears_specificity = true_wake/(false_wake + true_wake),
-    ears_accuracy = 
-      (true_sleep + true_wake) / (true_sleep + false_sleep + true_wake + false_wake)
+    ears.diary_bed_sensitivity = true_bed/(true_bed + false_bed),
+    ears.diary_bed_specificity = true_rise/(false_rise + true_rise),
+    ears.diary_bed_accuracy = 
+      (true_bed + true_rise) / (true_bed + false_bed + true_rise + false_rise)
     )
 
 
@@ -1345,20 +1526,18 @@ rm(df_sp)
 # match into analysis dataset
 df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears, by = c("actilife_id", "day_num"))
 
-# _ _ _ actilife ----
+# _ _ _ actilife ---- 
 
-# loop thru each particpant for each day num with ears and diary times
+# loop thru each particpant for each day num with ears and actilife times
 # to extract sensitivity, specificity, and accuracy scores for 
 # minute by minute comparisons across sources
 
 df_analysis_wide_sample2 <-
   df_analysis_wide2 %>% 
-  filter(!is.na(sleep_period_start_onset_minutes_diary) & 
-           !is.na(sleep_period_start_offset_minutes_diary) & 
-           !is.na(sleep_period_start_onset_minutes_ears) & 
-           !is.na(sleep_period_start_offset_minutes_ears) &
-           !is.na(sleep_period_start_onset_minutes_actilife) & 
-           !is.na(sleep_period_start_offset_minutes_actilife))
+  filter(!is.na(bedtime_start_onset_minutes_ears) & 
+           !is.na(risetime_start_offset_minutes_ears) &
+           !is.na(bedtime_start_onset_minutes_actilife) & 
+           !is.na(risetime_start_offset_minutes_actilife))
 
 unique_actilife_id <- unique(df_analysis_wide2$actilife_id)
 
@@ -1367,10 +1546,10 @@ df_sp <- data.frame(minutes = seq(1, 1440, by = 1))
 df_acc_actilife <- data.frame(
   actilife_id <- as.character(),
   day_num <- as.character(),
-  true_sleep <- as.character(),
-  false_sleep <- as.character(),
-  true_wake <- as.character(),
-  false_wake <- as.character(),
+  true_bed <- as.character(),
+  false_bed <- as.character(),
+  true_rise <- as.character(),
+  false_rise <- as.character(),
   sensitivity <- as.character(),
   specificity <- as.character(),
   accuracy <- as.character()
@@ -1382,79 +1561,81 @@ for(i in seq_along(unique_actilife_id)){
   df_temp_i <- df_analysis_wide2 %>% 
     filter(
       actilife_id == unique_actilife_id[i] &
-        !is.na(sleep_period_start_onset_minutes_diary) & 
-        !is.na(sleep_period_start_offset_minutes_diary) & 
-        !is.na(sleep_period_start_onset_minutes_ears) & 
-        !is.na(sleep_period_start_offset_minutes_ears) &
-        !is.na(sleep_period_start_onset_minutes_actilife) & 
-        !is.na(sleep_period_start_offset_minutes_actilife))
+        !is.na(bedtime_start_onset_minutes_ears) & 
+        !is.na(risetime_start_offset_minutes_ears) &
+        !is.na(bedtime_start_onset_minutes_actilife) & 
+        !is.na(risetime_start_offset_minutes_actilife))
+
   
   unique_day_num <- unique(df_temp_i$day_num)
   
   df_epoch_by_epoch <- data.frame(
     day_num <- as.character(),
-    true_sleep <- as.character(),
-    false_sleep <- as.character(),
-    true_wake <- as.character(),
-    false_wake <- as.character(),
+    true_bed <- as.character(),
+    false_bed <- as.character(),
+    true_rise <- as.character(),
+    false_rise <- as.character(),
     sensitivity <- as.character(),
     specificity <- as.character(),
     accuracy <- as.character()
   )
-  
+
   
   for(j in seq_along(unique_day_num)){
-    
-    df_diary_sleep <- data.frame(
+
+    df_actilife_bed <- data.frame(
       minutes = seq(
-        df_temp_i$sleep_period_start_onset_minutes_diary[j],
-        df_temp_i$sleep_period_start_offset_minutes_diary[j],
+        round(df_temp_i$bedtime_start_onset_minutes_actilife[j],0),
+        round(df_temp_i$risetime_start_offset_minutes_actilife[j],0),
         by = 1
       ),
-      diary_sleep = 1
-    )
-    
-    df_actilife_sleep <- data.frame(
-      minutes = seq(
-        round(df_temp_i$sleep_period_start_onset_minutes_actilife[j],0),
-        round(df_temp_i$sleep_period_start_offset_minutes_actilife[j],0),
-        by = 1
-      ),
-      actilife_sleep = 1
+      actilife_bed = 1
     )
     
     
-    df_temp_j <- left_join(df_sp, df_diary_sleep, by = c("minutes")) %>% left_join(df_actilife_sleep, by = c("minutes")) %>% mutate(day_num = j)
+    df_ears_bed <- data.frame(
+      minutes = seq(
+        round(df_temp_i$bedtime_start_onset_minutes_ears[j], 0),
+        round(df_temp_i$risetime_start_offset_minutes_ears[j], 0),
+        by = 1
+      ),
+      ears_bed = 1
+    )
     
-    df_temp_j <- df_temp_j %>% 
+   
+    
+    df_temp_j <- left_join(df_sp, df_actilife_bed, by = c("minutes")) %>% left_join(df_ears_bed, by = c("minutes")) %>% mutate(day_num = j) 
+    
+    df_temp_j <- 
+      df_temp_j %>% 
       dplyr::mutate(
-        true_sleep = as.numeric(ifelse((diary_sleep == 1 & actilife_sleep == 1), 1, 0)),
-        false_sleep = as.numeric(ifelse((is.na(diary_sleep) & actilife_sleep == 1), 1, 0)),
-        true_wake = as.numeric(ifelse((is.na(diary_sleep) & is.na(actilife_sleep)), 1, 0)),
-        false_wake = as.numeric(ifelse((diary_sleep == 1 & is.na(actilife_sleep)), 1, 0))
+        true_bed = as.numeric(ifelse((actilife_bed == 1 & ears_bed == 1), 1, 0)),
+        false_bed = as.numeric(ifelse((is.na(actilife_bed) & ears_bed == 1), 1, 0)),
+        true_rise = as.numeric(ifelse((is.na(actilife_bed) & is.na(ears_bed)), 1, 0)),
+        false_rise = as.numeric(ifelse((actilife_bed == 1 & is.na(ears_bed)), 1, 0))
       )
     
-    
-    df_temp_j_agg <- df_temp_j %>% 
+    df_temp_j_agg <-
+      df_temp_j %>% 
       dplyr::group_by(day_num) %>% 
       dplyr::summarise(
-        true_sleep = sum(true_sleep, na.rm = TRUE),
-        false_sleep = sum(false_sleep, na.rm = TRUE),
-        true_wake = sum(true_wake, na.rm = TRUE),
-        false_wake = sum(false_wake, na.rm = TRUE)
+        true_bed = sum(true_bed, na.rm = TRUE),
+        false_bed = sum(false_bed, na.rm = TRUE),
+        true_rise = sum(true_rise, na.rm = TRUE),
+        false_rise = sum(false_rise, na.rm = TRUE)
       ) %>% 
       dplyr::ungroup() %>% 
       dplyr::mutate(
-        actilife_sensitivity = true_sleep/(true_sleep + false_sleep),
-        actilife_specificity = true_wake/(false_wake + true_wake),
-        actilife_accuracy = (true_sleep + true_wake) / (true_sleep + false_sleep + true_wake + false_wake)
+        ears.actilife_bed_sensitivity = true_bed/(true_bed + false_bed),
+        ears.actilife_bed_specificity = true_rise/(false_rise + true_rise),
+        ears.actilife_bed_accuracy = (true_bed + true_rise) / (true_bed + false_bed + true_rise + false_rise)
         
       )
     
     
     df_epoch_by_epoch <- rbind(df_epoch_by_epoch, df_temp_j_agg)
     
-    rm(df_temp_j, df_temp_j_agg, df_diary_sleep, df_actilife_sleep)  
+    rm(df_temp_j, df_temp_j_agg, df_actilife_bed, df_ears_bed)  
     
   }
   
@@ -1476,34 +1657,316 @@ df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_actilife, by = c("ac
 ```
 
 
+#### Supplementary Sensitivity / Specificity / Accuracy (bedtime and risetime)
+To see whether ears bedtime and risetimes are more/less aligned with diary bedtime and risetimes within the truncated ears data capture schedule (8:30pm-10:39am; 849 minutes)
 
-## Computing differences in sleep onset, offset, and duration between sources
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+# _ _ _  ears ----
+# loop thru each particpant for each sp with ears and diary times
+# to extract sensitivity, specificity, and accuracy scores for 
+# minute by minute comparisons across sources
+
+df_analysis_wide_sample1 <-
+  df_analysis_wide2 %>% 
+  filter(!is.na(bedtime_start_onset_minutes_diary) & 
+  !is.na(risetime_start_offset_minutes_diary) & 
+  !is.na(bedtime_start_onset_minutes_ears) & 
+  !is.na(risetime_start_offset_minutes_ears))
+
+
+unique_actilife_id_trunc <- unique(df_analysis_wide2$actilife_id)
+
+df_sp_trunc <- data.frame(minutes = seq(1, 849, by = 1))
+
+df_acc_ears_trunc <- data.frame(
+  actilife_id <- as.character(),
+  day_num <- as.character(),
+  true_bed <- as.character(),
+  false_bed <- as.character(),
+  true_rise <- as.character(),
+  false_rise <- as.character(),
+  sensitivity <- as.character(),
+  specificity <- as.character(),
+  accuracy <- as.character()
+)
+
+for(i in seq_along(unique_actilife_id_trunc)){
+
+  df_temp_i_trunc <- df_analysis_wide2 %>% 
+    filter(
+      actilife_id == unique_actilife_id_trunc[i] &
+        !is.na(bedtime_start_onset_minutes_diary) & 
+                 !is.na(risetime_start_offset_minutes_diary) & 
+                 !is.na(bedtime_start_onset_minutes_ears) & 
+                 !is.na(risetime_start_offset_minutes_ears))
+  
+  unique_day_num_trunc <- unique(df_temp_i_trunc$day_num) 
+  
+  df_epoch_by_epoch_trunc <- data.frame(
+    day_num <- as.character(),
+    true_bed <- as.character(),
+    false_bed <- as.character(),
+    true_rise <- as.character(),
+    false_rise <- as.character(),
+    sensitivity <- as.character(),
+    specificity <- as.character(),
+    accuracy <- as.character()
+  )
+
+
+  for(j in seq_along(unique_day_num_trunc)){
+ 
+
+  #  if(!is.na(df_temp$sleep_period_start_onset_minutes_diary[j]) & !is.na(df_temp$sleep_period_start_onset_minutes_ears[j])){
+    
+      df_diary_bed_trunc <- 
+        data.frame(
+          minutes = seq(
+            df_temp_i_trunc$bedtime_start_onset_minutes_diary[j],
+            df_temp_i_trunc$risetime_start_offset_minutes_diary[j],
+            by = 1
+            ),
+          diary_bed = 1
+          )
+
+
+      df_ears_bed_trunc <- 
+        data.frame(
+          minutes = seq(
+            round(df_temp_i_trunc$bedtime_start_onset_minutes_ears[j],0),
+            round(df_temp_i_trunc$risetime_start_offset_minutes_ears[j],0),
+            by = 1
+            ),
+          ears_bed = 1
+          )
+
+    
+df_temp_j_trunc <- 
+  left_join(df_sp_trunc, df_diary_bed_trunc, by = c("minutes")) %>% 
+  left_join(df_ears_bed_trunc, by = c("minutes")) %>% mutate(day_num = j)
+
+
+df_temp_j_trunc <-
+  df_temp_j_trunc %>% 
+  dplyr::mutate(
+    true_bed = as.numeric(ifelse((diary_bed == 1 & ears_bed == 1), 1, 0)),
+    false_bed = as.numeric(ifelse((is.na(diary_bed) & ears_bed == 1), 1, 0)),
+    true_rise = as.numeric(ifelse((is.na(diary_bed) & is.na(ears_bed)), 1, 0)),
+    false_rise = as.numeric(ifelse((diary_bed == 1 & is.na(ears_bed)), 1, 0))
+    )
+
+         
+df_temp_j_agg_trunc <- 
+  df_temp_j_trunc %>% 
+  dplyr::group_by(day_num) %>% 
+  dplyr::summarise(
+    true_bed = sum(true_bed, na.rm = TRUE),
+    false_bed = sum(false_bed, na.rm = TRUE),
+    true_rise = sum(true_rise, na.rm = TRUE),
+    false_rise = sum(false_rise, na.rm = TRUE)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    ears.diary_bed_sensitivity_trunc = true_bed/(true_bed + false_bed),
+    ears.diary_bed_specificity_trunc = true_rise/(false_rise + true_rise),
+    ears.diary_bed_accuracy_trunc = 
+      (true_bed + true_rise) / (true_bed + false_bed + true_rise + false_rise)
+    )
+
+
+      
+    df_epoch_by_epoch_trunc <- rbind(df_epoch_by_epoch_trunc, df_temp_j_agg_trunc)
+
+    # rm(df_temp_j, df_temp_j_agg, df_diary_sleep, df_ears_sleep)  
+    
+  }
+  
+  df_epoch_by_epoch_trunc <- 
+    df_epoch_by_epoch_trunc %>% 
+    dplyr::mutate(actilife_id = unique_actilife_id_trunc[i])
+ 
+  df_acc_ears_trunc <- rbind(df_acc_ears_trunc, df_epoch_by_epoch_trunc)
+   
+ #  rm(df_temp_i, df_epoch_by_epoch)
+  
+}
+  
+rm(df_sp_trunc)
+  
+# match into analysis dataset
+df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_trunc, by = c("actilife_id", "day_num"))
+
+```
+
+
+#### Supplementary Sensitivity / Specificity / Accuracy (ears bedtime/risetime v diary sleep onset and offset)
+To see whether ears bedtime and risetimes are more/less aligned with diary sleep onset and offset
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+# _ _ _  ears ----
+# loop thru each particpant for each sp with ears and diary times
+# to extract sensitivity, specificity, and accuracy scores for 
+# minute by minute comparisons across sources
+
+df_analysis_wide_sample1_supp <-
+  df_analysis_wide2 %>% 
+  filter(!is.na(sleep_period_start_onset_minutes_diary) & 
+  !is.na(sleep_period_start_offset_minutes_diary) & 
+  !is.na(bedtime_start_onset_minutes_ears) & 
+  !is.na(risetime_start_offset_minutes_ears))
+
+
+unique_actilife_id_supp <- unique(df_analysis_wide2$actilife_id)
+
+df_sp_supp <- data.frame(minutes = seq(1, 1440, by = 1))
+
+df_acc_ears_supp <- data.frame(
+  actilife_id <- as.character(),
+  day_num <- as.character(),
+  true_sleep <- as.character(),
+  false_sleep <- as.character(),
+  true_wake <- as.character(),
+  false_wake <- as.character(),
+  sensitivity <- as.character(),
+  specificity <- as.character(),
+  accuracy <- as.character()
+)
+
+for(i in seq_along(unique_actilife_id_supp)){
+
+  df_temp_i_supp <- df_analysis_wide2 %>% 
+    filter(
+      actilife_id == unique_actilife_id_supp[i] &
+        !is.na(sleep_period_start_onset_minutes_diary) & 
+                 !is.na(sleep_period_start_offset_minutes_diary) & 
+                 !is.na(bedtime_start_onset_minutes_ears) & 
+                 !is.na(risetime_start_offset_minutes_ears))
+  
+  unique_day_num_supp <- unique(df_temp_i_supp$day_num) 
+  
+  df_epoch_by_epoch_supp <- data.frame(
+    day_num <- as.character(),
+    true_sleep <- as.character(),
+    false_sleep <- as.character(),
+    true_wake <- as.character(),
+    false_wake <- as.character(),
+    sensitivity <- as.character(),
+    specificity <- as.character(),
+    accuracy <- as.character()
+  )
+
+
+  for(j in seq_along(unique_day_num_supp)){
+ 
+
+  #  if(!is.na(df_temp$sleep_period_start_onset_minutes_diary[j]) & !is.na(df_temp$sleep_period_start_onset_minutes_ears[j])){
+    
+      df_diary_sleep_supp <- 
+        data.frame(
+          minutes = seq(
+            df_temp_i_supp$sleep_period_start_onset_minutes_diary[j],
+            df_temp_i_supp$sleep_period_start_offset_minutes_diary[j],
+            by = 1
+            ),
+          diary_sleep = 1
+          )
+
+
+      df_ears_bed_supp <- 
+        data.frame(
+          minutes = seq(
+            round(df_temp_i_supp$bedtime_start_onset_minutes_ears[j],0),
+            round(df_temp_i_supp$risetime_start_offset_minutes_ears[j],0),
+            by = 1
+            ),
+          ears_bed = 1
+          )
+
+    
+df_temp_j_supp <- 
+  left_join(df_sp_supp, df_diary_sleep_supp, by = c("minutes")) %>% 
+  left_join(df_ears_bed_supp, by = c("minutes")) %>% mutate(day_num = j)
+
+
+df_temp_j_supp <-
+  df_temp_j_supp %>% 
+  dplyr::mutate(
+    true_sleep = as.numeric(ifelse((diary_sleep == 1 & ears_bed == 1), 1, 0)),
+    false_sleep = as.numeric(ifelse((is.na(diary_sleep) & ears_bed == 1), 1, 0)),
+    true_wake = as.numeric(ifelse((is.na(diary_sleep) & is.na(ears_bed)), 1, 0)),
+    false_wake = as.numeric(ifelse((diary_sleep == 1 & is.na(ears_bed)), 1, 0))
+    )
+
+         
+df_temp_j_agg_supp <- df_temp_j_supp %>% 
+  dplyr::group_by(day_num) %>% 
+  dplyr::summarise(
+    true_sleep = sum(true_sleep, na.rm = TRUE),
+    false_sleep = sum(false_sleep, na.rm = TRUE),
+    true_wake = sum(true_wake, na.rm = TRUE),
+    false_wake = sum(false_wake, na.rm = TRUE)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    ears.diary_sleep_sensitivity = true_sleep/(true_sleep + false_sleep),
+    ears.diary_sleep_specificity = true_wake/(false_wake + true_wake),
+    ears.diary_sleep_accuracy = 
+      (true_sleep + true_wake) / (true_sleep + false_sleep + true_wake + false_wake)
+    )
+
+
+      
+    df_epoch_by_epoch_supp <- rbind(df_epoch_by_epoch_supp, df_temp_j_agg_supp)
+
+    # rm(df_temp_j, df_temp_j_agg, df_diary_sleep, df_ears_sleep)  
+    
+  }
+  
+  df_epoch_by_epoch_supp <- 
+    df_epoch_by_epoch_supp %>% 
+    dplyr::mutate(actilife_id = unique_actilife_id_supp[i])
+ 
+  df_acc_ears_supp <- rbind(df_acc_ears_supp, df_epoch_by_epoch_supp)
+   
+ #  rm(df_temp_i, df_epoch_by_epoch)
+  
+}
+  
+rm(df_sp_supp)
+  
+# match into analysis dataset
+df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_supp, by = c("actilife_id", "day_num"))
+
+```
+
+
+## Computing differences in bedtime, risetime, and time in bed between sources
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 df_analysis_wide3 <- 
   df_analysis_wide2 %>% 
-  drop_na(sleep_onset_timestamp_diary) %>%
+  drop_na(bedtime_timestamp_diary) %>%
   dplyr::mutate(
     sample_data_available = 
       ifelse(
-        (!is.na(sleep_period_start_onset_minutes_diary) &
-           !is.na(sleep_period_start_offset_minutes_diary) &
-           !is.na(sleep_period_start_onset_minutes_ears) &
-           !is.na(sleep_period_start_offset_minutes_ears) &
-           !is.na(sleep_period_start_onset_minutes_actilife) &
-           !is.na(sleep_period_start_offset_minutes_actilife)
+        (!is.na(bedtime_start_onset_minutes_diary) &
+           !is.na(risetime_start_offset_minutes_diary) &
+           !is.na(bedtime_start_onset_minutes_ears) &
+           !is.na(risetime_start_offset_minutes_ears) &
+           !is.na(bedtime_start_onset_minutes_actilife) &
+           !is.na(risetime_start_offset_minutes_actilife)
          ), "EARS & ActiGraph & Diary", # Jackie: added in diary here in the classification of this variable
         ifelse(
-          (!is.na(sleep_period_start_onset_minutes_diary) &
-             !is.na(sleep_period_start_offset_minutes_diary) &
-             !is.na(sleep_period_start_onset_minutes_ears) &
-             !is.na(sleep_period_start_offset_minutes_ears)
+          (!is.na(bedtime_start_onset_minutes_diary) &
+             !is.na(risetime_start_offset_minutes_diary) &
+             !is.na(bedtime_start_onset_minutes_ears) &
+             !is.na(risetime_start_offset_minutes_ears)
            ), "EARS & Diary Only",
           ifelse(
-            (!is.na(sleep_period_start_onset_minutes_diary) &
-               !is.na(sleep_period_start_offset_minutes_diary) &
-               !is.na(sleep_period_start_onset_minutes_actilife) &
-               !is.na(sleep_period_start_offset_minutes_actilife)
+            (!is.na(bedtime_start_onset_minutes_diary) &
+               !is.na(risetime_start_offset_minutes_diary) &
+               !is.na(bedtime_start_onset_minutes_actilife) &
+               !is.na(risetime_start_offset_minutes_actilife)
              ), "ActiGraph & Diary Only", NA) # Jackie added ActiGraph & Diary only
            )
         ),
@@ -1513,41 +1976,65 @@ df_analysis_wide3 <-
     sample_2_flag = 
       ifelse(sample_data_available == "ActiGraph & Diary Only" |
                sample_data_available == "EARS & ActiGraph & Diary", 1, 0),
-    # difference in onset min between diary and ears
-    sleep_onset_diff_min_diary_ears_abs = 
-      abs(sleep_onset_diff_min_diary_ears),
+    # difference in bedtime min between diary and ears
+    bedtime_diff_min_diary_ears_abs = 
+      abs(bedtime_diff_min_diary_ears),
  
-    # difference in offset min between diary and ears
-    sleep_offset_diff_min_diary_ears_abs =
-      abs(sleep_offset_diff_min_diary_ears),
+    # difference in risetime min between diary and ears
+    risetime_diff_min_diary_ears_abs =
+      abs(risetime_diff_min_diary_ears),
 
-    # difference in duration min between diary and ears
-    sleep_duration_minutes_diff_min_diary_ears_abs =
-      abs(sleep_duration_minutes_diff_min_diary_ears),
+    # difference in time in bed min between diary and ears
+    time_in_bed_minutes_diff_min_diary_ears_abs =
+      abs(time_in_bed_minutes_diff_min_diary_ears),
+    
+    # difference in sleep onset min diary and bedtime min ears (supp)
+    sleep_onset_bedtime_diff_min_diary_ears_abs =
+      abs(sleep_onset_bedtime_diff_min_diary_ears),   
+    
+    # difference in sleep offset min diary and risetime min ears (supp)
+    sleep_offset_risetime_diff_min_diary_ears_abs =
+      abs(sleep_offset_risetime_diff_min_diary_ears),      
+    
+    # difference in sleep duration min diary and time in bed min ears (supp)
+    time_in_bed_minutes_diff_min_diary_ears_abs =
+      abs(time_in_bed_minutes_diff_min_diary_ears),        
  
-    # difference in onset min between diary and actilife
-    sleep_onset_diff_min_diary_actilife_abs = 
-      abs(sleep_onset_diff_min_diary_actilife),
+    # difference in bedtime min between diary and actilife
+    bedtime_diff_min_diary_actilife_abs = 
+      abs(bedtime_diff_min_diary_actilife),
    
-    # difference in offset min between diary and actilife
-    sleep_offset_diff_min_diary_actilife_abs = 
-      abs(sleep_offset_diff_min_diary_actilife),
+    # difference in risetime min between diary and actilife
+    risetime_diff_min_diary_actilife_abs = 
+      abs(risetime_diff_min_diary_actilife),
   
-    # difference in duration min between diary and actilife
-    sleep_duration_minutes_diff_min_diary_actilife_abs =
-      abs(sleep_duration_minutes_diff_min_diary_actilife),
-  
-    # difference in onset min between ears and actilife
-    sleep_onset_diff_min_actilife_ears_abs = 
-      abs(sleep_onset_diff_min_actilife_ears),
+    # difference in time in bed min between diary and actilife
+    time_in_bed_minutes_diff_min_diary_actilife_abs =
+      abs(time_in_bed_minutes_diff_min_diary_actilife),
+    
+    # difference in sleep onset min diary and bedtime min actilife (supp)
+    sleep_onset_bedtime_diff_min_diary_actilife_abs = 
+      abs(sleep_onset_bedtime_diff_min_diary_actilife),
    
-    # difference in offset min between ears and actilife
-    sleep_offset_diff_min_actilife_ears_abs = 
-      abs(sleep_offset_diff_min_actilife_ears),
+    # difference in sleep offset min diary and risetime min actilife (supp)
+    sleep_offset_risetime_diff_min_diary_actilife_abs = 
+      abs(sleep_offset_risetime_diff_min_diary_actilife),
+  
+    # difference in sleep duration min diary and time in bed min actilife (supp)
+    sleep_dur_time_in_bed_minutes_diff_min_diary_actilife_abs =
+      abs(sleep_dur_time_in_bed_minutes_diff_min_diary_actilife),    
+    
+    # difference in bedtime min between ears and actilife
+    bedtime_diff_min_actilife_ears_abs = 
+      abs(bedtime_diff_min_actilife_ears),
+   
+    # difference in risetime min between ears and actilife
+    risetime_diff_min_actilife_ears_abs = 
+      abs(risetime_diff_min_actilife_ears),
 
-    # difference in duration min between ears and actilife
-    sleep_duration_minutes_diff_min_actilife_ears_abs =
-      abs(sleep_duration_minutes_diff_min_actilife_ears)
+    # difference in time in bed min between ears and actilife
+    time_in_bed_minutes_diff_min_actilife_ears_abs =
+      abs(time_in_bed_minutes_diff_min_actilife_ears)
     )
 ```
 
@@ -1586,31 +2073,6 @@ df_analysis4 <-
   df_analysis3 %>%
   left_join(df_analysis_roster, by = c("actilife_id"))
 
-df_analysis4_sum <-
-  df_analysis4 %>%
-  dplyr::group_by(actilife_id, source_combination) %>%
-  dplyr::summarise(
-    n = n()
-  ) %>%
-  dplyr::ungroup() %>%
-  dplyr::group_by(source_combination) %>%
-  dplyr::summarise(
-    n = n()
-  ) %>%
-  dplyr::rename("Source" = source_combination)
-df_analysis4_sum[ ,1] <- c("Diary & ActiGraph", "Diary & EARS", "Diary, EARS, & ActiGraph", "EARS & ActiGraph")
-
-
-data_source_table <-
-  apa_table(
-  df_analysis4_sum
-  , landscape = FALSE
-  , caption = "Number of participants with each data source"
-  , escape = FALSE
-)
-
-data_source_table
-
 ```
 
 
@@ -1618,6 +2080,84 @@ data_source_table
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 # ---- Diary ---- 
+
+### Time in Bed
+diary_tib_dist <- 
+  df_analysis_wide3 %>%
+  ggplot(
+    aes(x = time_in_bed_minutes_diary)
+  ) + 
+  geom_boxplot() + # looks okay (maybe 1 outliers)
+  labs(
+    x = "Time in Bed (Min)"
+  ) +
+  theme(axis.title.x = element_text(size = 10))
+# get mean and sd
+mean <- mean(df_analysis_wide3$time_in_bed_minutes_diary, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$time_in_bed_minutes_diary, na.rm = TRUE)
+# get threshold values for outliers
+Tmin = mean-(3*sd) 
+Tmax = mean+(3*sd)
+# find outlier
+out <- df_analysis_wide3$time_in_bed_minutes_diary[which(df_analysis_wide3$time_in_bed_minutes_diary < Tmin | df_analysis_wide3$time_in_bed_minutes_diary > Tmax)]
+out_ind <- which(df_analysis_wide3$time_in_bed_minutes_diary %in% c(out)) # no outliers
+
+
+### Bedtime
+diary_bedtime_dist <-
+  df_analysis_wide3 %>%
+  ggplot(
+    aes(x = bedtime_start_onset_minutes_diary)
+  ) + 
+  geom_boxplot() +
+    labs(
+    x = "Bedtime (Min from Midnight)"
+  ) +
+  theme(axis.title.x = element_text(size = 10))
+  
+# get mean and sd
+mean <- mean(df_analysis_wide3$bedtime_start_onset_minutes_diary, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$bedtime_start_onset_minutes_diary, na.rm = TRUE)
+# get threshold values for outliers
+Tmin = mean-(3*sd) 
+Tmax = mean+(3*sd)
+# find outlier
+out <- df_analysis_wide3$bedtime_start_onset_minutes_diary[which(df_analysis_wide3$bedtime_start_onset_minutes_diary < Tmin | df_analysis_wide3$bedtime_start_onset_minutes_diary > Tmax)]
+out_ind <- which(df_analysis_wide3$bedtime_start_onset_minutes_diary %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(14, 19, 62)# vh2540 (day 1, 280 min); vh2540 (day 6, 291 min); kk1526 (day 5, 360 min)
+
+
+### Risetime
+diary_risetime_dist <- 
+  df_analysis_wide3 %>%
+  ggplot(
+    aes(x = risetime_start_offset_minutes_diary)
+  ) + 
+  geom_boxplot() +
+    labs(
+    x = "Rise Time (Min from Midnight)"
+  ) +
+  theme(axis.title.x = element_text(size = 10))
+
+# get mean and sd
+mean <- mean(df_analysis_wide3$risetime_start_offset_minutes_diary, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$risetime_start_offset_minutes_diary, na.rm = TRUE)
+# get threshold values for outliers
+Tmin = mean-(3*sd) 
+Tmax = mean+(3*sd)
+# find outlier
+out <- df_analysis_wide3$risetime_start_offset_minutes_diary[which(df_analysis_wide3$risetime_start_offset_minutes_diary < Tmin | df_analysis_wide3$risetime_start_offset_minutes_diary > Tmax)]
+out_ind <- which(df_analysis_wide3$risetime_start_offset_minutes_diary %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(14) # vh2540 (day 1, 900 min)
+
+(diary_bedtime_dist + diary_risetime_dist +  diary_tib_dist) +
+  plot_annotation(
+    title = "Distribution of Diary Self-Reported Bedtime, Risetime, and Time-in-Bed",
+    subtitle = "",
+    caption = ""
+  )
+
+#############################################
 
 ### Sleep Duration
 diary_dur_dist <- 
@@ -1627,7 +2167,7 @@ diary_dur_dist <-
   ) + 
   geom_boxplot() + # looks okay (maybe 4 outliers)
   labs(
-    x = "Time in Bed (Min)"
+    x = "Sleep Duration (Min)"
   ) +
   theme(axis.title.x = element_text(size = 10))
 # get mean and sd
@@ -1639,7 +2179,7 @@ Tmax = mean+(3*sd)
 # find outlier
 out <- df_analysis_wide3$sleep_duration_minutes_diary[which(df_analysis_wide3$sleep_duration_minutes_diary < Tmin | df_analysis_wide3$sleep_duration_minutes_diary > Tmax)]
 out_ind <- which(df_analysis_wide3$sleep_duration_minutes_diary %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(16,27) # ys8070 (day 0, 30 min); vh2540 (day 7, 0 min)
+# out_ids <- df_analysis_wide3 %>% slice(16,27) # ys8070 (day 0, 30 min); vh2540 (day 7, 0 min)
 
 
 ### Sleep Onset
@@ -1650,7 +2190,7 @@ diary_on_dist <-
   ) + 
   geom_boxplot() +
     labs(
-    x = "Bedtime (Min from Midnight)"
+    x = "Sleep Onset (Min from Midnight)"
   ) +
   theme(axis.title.x = element_text(size = 10))
   
@@ -1663,8 +2203,7 @@ Tmax = mean+(3*sd)
 # find outlier
 out <- df_analysis_wide3$sleep_period_start_onset_minutes_diary[which(df_analysis_wide3$sleep_period_start_onset_minutes_diary < Tmin | df_analysis_wide3$sleep_period_start_onset_minutes_diary > Tmax)]
 out_ind <- which(df_analysis_wide3$sleep_period_start_onset_minutes_diary %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(16, 85, 272) # ys8070 (day 0, 450 min); kk1526 (day 5, 360 min); jr4206 (day 3, 382 min)
-
+out_ids <- df_analysis_wide3 %>% slice(19, 62) # vh2540 (day 6, 335 min); kk1526 (day 5, 360 min)
 
 ### Sleep Offset
 diary_off_dist <- 
@@ -1674,7 +2213,7 @@ diary_off_dist <-
   ) + 
   geom_boxplot() +
     labs(
-    x = "Rise Time (Min from Midnight)"
+    x = "Sleep Offset (Min from Midnight)"
   ) +
   theme(axis.title.x = element_text(size = 10))
 
@@ -1687,11 +2226,11 @@ Tmax = mean+(3*sd)
 # find outlier
 out <- df_analysis_wide3$sleep_period_start_offset_minutes_diary[which(df_analysis_wide3$sleep_period_start_offset_minutes_diary < Tmin | df_analysis_wide3$sleep_period_start_offset_minutes_diary > Tmax)]
 out_ind <- which(df_analysis_wide3$sleep_period_start_offset_minutes_diary %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(20, 27) # vh2540 (day 1, 860 min); vh2540 (day 7, 0 min)
+out_ids <- df_analysis_wide3 %>% slice(14) # vh2540 (day 1, 860 min)
 
-(diary_dur_dist +  diary_on_dist + diary_off_dist) +
+(diary_on_dist + diary_off_dist + diary_dur_dist) +
   plot_annotation(
-    title = "Distribution of Diary Self-Reported Sleep",
+    title = "Distribution of Diary Self-Reported Sleep Onset, Offset, and Duration",
     subtitle = "",
     caption = ""
   )
@@ -1702,11 +2241,11 @@ out_ids <- df_analysis_wide3 %>% slice(20, 27) # vh2540 (day 1, 860 min); vh2540
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 # ---- Actilife ---- 
 
-### Sleep Duration
-act_dur_dist <-
+### Time in Bed
+act_tib_dist <-
   df_analysis_wide3 %>%
   ggplot(
-    aes(x = sleep_duration_minutes_actilife)
+    aes(x = time_in_bed_minutes_actilife)
   ) + 
   geom_boxplot() + # bunch of outliers
   labs(
@@ -1715,22 +2254,22 @@ act_dur_dist <-
   theme(axis.title.x = element_text(size = 10))
 
 # get mean and sd
-mean <- mean(df_analysis_wide3$sleep_duration_minutes_actilife, na.rm = TRUE)
-sd <- sd(df_analysis_wide3$sleep_duration_minutes_actilife, na.rm = TRUE)
+mean <- mean(df_analysis_wide3$time_in_bed_minutes_actilife, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$time_in_bed_minutes_actilife, na.rm = TRUE)
 # get threshold values for outliers
 Tmin = mean-(3*sd) 
 Tmax = mean+(3*sd)
 # find outlier
-out <- df_analysis_wide3$sleep_duration_minutes_actilife[which(df_analysis_wide3$sleep_duration_minutes_actilife < Tmin | df_analysis_wide3$sleep_duration_minutes_actilife > Tmax)]
-out_ind <- which(df_analysis_wide3$sleep_duration_minutes_actilife %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(91, 196) # kj6506 (day 3, 1405 min); ae1365 (day 9, 1242 min)
+out <- df_analysis_wide3$time_in_bed_minutes_actilife[which(df_analysis_wide3$time_in_bed_minutes_actilife < Tmin | df_analysis_wide3$time_in_bed_minutes_actilife > Tmax)]
+out_ind <- which(df_analysis_wide3$time_in_bed_minutes_actilife %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(66) # kj6506 (day 3, 1405 min)
 
 
-### Sleep Onset
-act_on_dist<-
+### Bedtime
+act_bedtime_dist<-
   df_analysis_wide3 %>%
   ggplot(
-    aes(x = sleep_period_start_onset_minutes_actilife)
+    aes(x = bedtime_start_onset_minutes_actilife)
   ) + 
   geom_boxplot() +
   labs(
@@ -1738,22 +2277,22 @@ act_on_dist<-
   ) +
   theme(axis.title.x = element_text(size = 10))
 # get mean and sd
-mean <- mean(df_analysis_wide3$sleep_period_start_onset_minutes_actilife, na.rm = TRUE)
-sd <- sd(df_analysis_wide3$sleep_period_start_onset_minutes_actilife, na.rm = TRUE)
+mean <- mean(df_analysis_wide3$bedtime_start_onset_minutes_actilife, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$bedtime_start_onset_minutes_actilife, na.rm = TRUE)
 # get threshold values for outliers
 Tmin = mean-(3*sd) 
 Tmax = mean+(3*sd)
 # find outlier
-out <- df_analysis_wide3$sleep_period_start_onset_minutes_actilife[which(df_analysis_wide3$sleep_period_start_onset_minutes_actilife < Tmin | df_analysis_wide3$sleep_period_start_onset_minutes_actilife > Tmax)]
-out_ind <- which(df_analysis_wide3$sleep_period_start_onset_minutes_actilife %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(34, 91, 165) # ss9468 (day 7, -514 min); kj6506 (day 3, -599 min); jd5772 (day 5,  746)
+out <- df_analysis_wide3$bedtime_start_onset_minutes_actilife[which(df_analysis_wide3$bedtime_start_onset_minutes_actilife < Tmin | df_analysis_wide3$bedtime_start_onset_minutes_actilife > Tmax)]
+out_ind <- which(df_analysis_wide3$bedtime_start_onset_minutes_actilife %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(26, 66, 113) # ss9468 (day 7, -514 min); kj6506 (day 3, -599 min); jd5772 (day 5,  746)
 
 
-### Sleep Offset
-act_off_dist <-
+### Risetime
+act_risetime_dist <-
   df_analysis_wide3 %>%
   ggplot(
-    aes(x = sleep_period_start_offset_minutes_actilife)
+    aes(x = risetime_start_offset_minutes_actilife)
   ) + 
   geom_boxplot() +
   labs(
@@ -1761,20 +2300,20 @@ act_off_dist <-
   ) +
   theme(axis.title.x = element_text(size = 10))
 # get mean and sd
-mean <- mean(df_analysis_wide3$sleep_period_start_offset_minutes_actilife, na.rm = TRUE)
-sd <- sd(df_analysis_wide3$sleep_period_start_offset_minutes_actilife, na.rm = TRUE)
+mean <- mean(df_analysis_wide3$risetime_start_offset_minutes_actilife, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$risetime_start_offset_minutes_actilife, na.rm = TRUE)
 # get threshold values for outliers
 Tmin = mean-(3*sd) 
 Tmax = mean+(3*sd)
 # find outlier
-out <- df_analysis_wide3$sleep_period_start_offset_minutes_actilife[which(df_analysis_wide3$sleep_period_start_offset_minutes_actilife < Tmin | df_analysis_wide3$sleep_period_start_offset_minutes_actilife > Tmax)]
-out_ind <- which(df_analysis_wide3$sleep_period_start_offset_minutes_actilife %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(23, 247) # vh2540 (day 4, 1149 min); jm8103 (day 7, 1054 min)
+out <- df_analysis_wide3$risetime_start_offset_minutes_actilife[which(df_analysis_wide3$risetime_start_offset_minutes_actilife < Tmin | df_analysis_wide3$risetime_start_offset_minutes_actilife > Tmax)]
+out_ind <- which(df_analysis_wide3$risetime_start_offset_minutes_actilife %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(17, 169) # vh2540 (day 4, 1149 min); jm8103 (day 7, 1054 min)
 
 
-(act_dur_dist +  act_on_dist + act_off_dist) +
+(act_bedtime_dist + act_risetime_dist + act_tib_dist) +
   plot_annotation(
-    title = "Distribution of ActiGraph Wearable Sleep",
+    title = "Distribution of ActiGraph Wearable Bedtime, Risetime, Time-in-Bed",
     subtitle = "",
     caption = "",
     theme = theme(axis.text = element_text(size = 8))
@@ -1785,11 +2324,11 @@ out_ids <- df_analysis_wide3 %>% slice(23, 247) # vh2540 (day 4, 1149 min); jm81
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 # ---- ears ---- 
 
-### Sleep Duration
-ears_dur_dist <-
+### Time in Bed
+ears_tib_dist <-
   df_analysis_wide3 %>%
   ggplot(
-    aes(x = sleep_duration_minutes_ears)
+    aes(x = time_in_bed_minutes_ears)
   ) + 
   geom_boxplot()  +
   labs(
@@ -1797,21 +2336,21 @@ ears_dur_dist <-
   ) +
   theme(axis.title.x = element_text(size = 10))
 # get mean and sd
-mean <- mean(df_analysis_wide3$sleep_duration_minutes_ears, na.rm = TRUE)
-sd <- sd(df_analysis_wide3$sleep_duration_minutes_ears, na.rm = TRUE)
+mean <- mean(df_analysis_wide3$time_in_bed_minutes_ears, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$time_in_bed_minutes_ears, na.rm = TRUE)
 # get threshold values for outliers
 Tmin = mean-(3*sd) 
 Tmax = mean+(3*sd)
 # find outlier
-out <- df_analysis_wide3$sleep_duration_minutes_ears[which(df_analysis_wide3$sleep_duration_minutes_ears < Tmin | df_analysis_wide3$sleep_duration_minutes_ears > Tmax)]
-out_ind <- which(df_analysis_wide3$sleep_duration_minutes_ears %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(197) # ae1365 (day 0, 50.43 min)
+out <- df_analysis_wide3$time_in_bed_minutes_ears[which(df_analysis_wide3$time_in_bed_minutes_ears < Tmin | df_analysis_wide3$time_in_bed_minutes_ears > Tmax)]
+out_ind <- which(df_analysis_wide3$time_in_bed_minutes_ears %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(133) # ae1365 (day 0, 50.43 min)
 
-### Sleep Onset
-ears_on_dist <-
+### Bedtime
+ears_bedtime_dist <-
   df_analysis_wide3 %>%
   ggplot(
-    aes(x = sleep_period_start_onset_minutes_ears)
+    aes(x = bedtime_start_onset_minutes_ears)
   ) + 
   geom_boxplot() +
   labs(
@@ -1819,23 +2358,23 @@ ears_on_dist <-
   ) +
   theme(axis.title.x = element_text(size = 10))
 # get mean and sd
-mean <- mean(df_analysis_wide3$sleep_period_start_onset_minutes_ears, na.rm = TRUE)
-sd <- sd(df_analysis_wide3$sleep_period_start_onset_minutes_ears, na.rm = TRUE)
+mean <- mean(df_analysis_wide3$bedtime_start_onset_minutes_ears, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$bedtime_start_onset_minutes_ears, na.rm = TRUE)
 # get threshold values for outliers
 Tmin = mean-(3*sd) 
 Tmax = mean+(3*sd)
 # find outlier
-out <- df_analysis_wide3$sleep_period_start_onset_minutes_ears[which(df_analysis_wide3$sleep_period_start_onset_minutes_ears < Tmin | df_analysis_wide3$sleep_period_start_onset_minutes_ears > Tmax)]
-out_ind <- which(df_analysis_wide3$sleep_period_start_onset_minutes_ears %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(193, 197) # ae1365 (day 6, 1267 min; day 0, 1291 min)
+out <- df_analysis_wide3$bedtime_start_onset_minutes_ears[which(df_analysis_wide3$bedtime_start_onset_minutes_ears < Tmin | df_analysis_wide3$bedtime_start_onset_minutes_ears > Tmax)]
+out_ind <- which(df_analysis_wide3$bedtime_start_onset_minutes_ears %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(131, 133) # ae1365 (day 6, 1267 min; day 0, 1291 min)
 
 
 
-### Sleep Offset
-ears_off_dist <-
+### Risetime
+ears_risetime_dist <-
   df_analysis_wide3 %>%
   ggplot(
-    aes(x = sleep_period_start_offset_minutes_ears)
+    aes(x = risetime_start_offset_minutes_ears)
   ) + 
   geom_boxplot() +
   labs(
@@ -1843,21 +2382,21 @@ ears_off_dist <-
   ) +
   theme(axis.title.x = element_text(size = 10))
 # get mean and sd
-mean <- mean(df_analysis_wide3$sleep_period_start_offset_minutes_ears, na.rm = TRUE)
-sd <- sd(df_analysis_wide3$sleep_period_start_offset_minutes_ears, na.rm = TRUE)
+mean <- mean(df_analysis_wide3$risetime_start_offset_minutes_ears, na.rm = TRUE)
+sd <- sd(df_analysis_wide3$risetime_start_offset_minutes_ears, na.rm = TRUE)
 # get threshold values for outliers
 Tmin = mean-(3*sd) 
 Tmax = mean+(3*sd)
 # find outlier
-out <- df_analysis_wide3$sleep_period_start_offset_minutes_ears[which(df_analysis_wide3$sleep_period_start_offset_minutes_ears < Tmin | df_analysis_wide3$sleep_period_start_offset_minutes_ears > Tmax)]
-out_ind <- which(df_analysis_wide3$sleep_period_start_offset_minutes_ears %in% c(out))
-out_ids <- df_analysis_wide3 %>% slice(193, 197) # ae1365 (day 6, 1347 min; day 0, 1342 min)
+out <- df_analysis_wide3$risetime_start_offset_minutes_ears[which(df_analysis_wide3$risetime_start_offset_minutes_ears < Tmin | df_analysis_wide3$risetime_start_offset_minutes_ears > Tmax)]
+out_ind <- which(df_analysis_wide3$risetime_start_offset_minutes_ears %in% c(out))
+out_ids <- df_analysis_wide3 %>% slice(131, 133) # ae1365 (day 6, 1347 min; day 0, 1342 min)
 
 
 
-(ears_dur_dist +  ears_on_dist + ears_off_dist) +
+(ears_bedtime_dist + ears_risetime_dist + ears_tib_dist) +
   plot_annotation(
-    title = "Distribution of EARS Mobile Sensing Sleep",
+    title = "Distribution of EARS Mobile Sensing Bedtime, Risetime, Time-in-Bed",
     subtitle = "",
     caption = "",
     theme = theme(axis.text = element_text(size = 8))
@@ -1868,92 +2407,88 @@ out_ids <- df_analysis_wide3 %>% slice(193, 197) # ae1365 (day 6, 1347 min; day 
 
 ```{r}
 # --- Df without outliers ---
+
+# diary time in bed: 
+# no outliers
+# diary bedtime minutes:  
+## vh2540 (risetime date 2018-10-04, day 1, 280 min);
+## vh2540 (risetime date 2018-10-09, day 6, 291 min); 
+## kk1526 (risetime date 2018-10-14, day 5, 360 min).
+# diary risetime minutes: 
+## vh2540 (risetime date 2018-10-04, day 1, 900 min); 
+
 # diary sleep duration: 
-## ys8070 (sleep offset date 2018-10-03, day 0, 30 min); 
-## vh2540 (sleep offset date 2018-10-10, day 7, 0 min).  
+# no outliers
 # diary sleep onset minutes:  
-## ys8070 (sleep offset date 2018-10-03, day 0, 450 min);
-## kk1526 (sleep offset date 2018-10-14, day 5, 360 min); 
-## jr4206 (sleep offset date 2018-10-26, day 3, 382 min). 
+## vh2540 (risetime date 2018-10-09, day 6, 335 min);
+## kk1526 (risetime date 2018-10-14, day 5, 360 min); 
 # diary sleep offset minutes: 
-## vh2540 (sleep offset date 2018-10-04, day 1, 860 min); 
-## vh2540 (sleep offset date 2018-10-10, day 7, 0 min).
-# actilife sleep duration: 
-## kj6506 (sleep offset date 2018-10-12, day 3, 1405 min); 
-## ae1365 (sleep offset date 2018-10-24, day 9, 1242 min). 
-# actilife sleep onset minutes: 
-## ss9468 (sleep offset date 2018-10-11, day 7, -514 min);
-## kj6506 (sleep offset date 2018-10-12, day 3, -599 min); 
-## jd5772 (sleep offset date 2018-10-17, day 5,  746).
-# actilife sleep offset minutes: 
-## vh2540 (sleep offset date 2018-10-07, day 4, 1149 min); 
-## jm8103 (sleep offset date 2018-10-26, day 7, 1054 min). 
-# ears sleep duration: 
-## ae1365 (sleep offset date 2018-10-15, day 0, 50.43 min). 
-# ears sleep onset minutes: 
-## ae1365 (sleep offset date 2018-10-21, day 6, 1267 min);
-## ae1365 (sleep offset date 2018-10-15, day 0, 1291 min). 
-# ears sleep offset minutes: 
-## ae1365 (sleep offset date 2018-10-21, day 6, 1347 min);
-## ae1365 (sleep offset date 2018-10-15, day 0, 1342 min).
+## vh2540 (risetime date 2018-10-04, day 1, 860 min); 
+
+# actilife time in bed: 
+## kj6506 (risetime date 2018-10-12, day 3, 1405 min); 
+# actilife bedtime minutes: 
+## ss9468 (risetime date 2018-10-11, day 7, -514 min);
+## kj6506 (risetime date 2018-10-12, day 3, -599 min); 
+## jd5772 (risetime date 2018-10-17, day 5,  746).
+# actilife risetime minutes: 
+## vh2540 (risetime date 2018-10-07, day 4, 1149 min); 
+## jm8103 (risetime date 2018-10-26, day 7, 1054 min). 
+
+# ears time in bed: 
+## ae1365 (risetime date 2018-10-15, day 0, 50.43 min). 
+# ears bedtime minutes: 
+## ae1365 (risetime date 2018-10-21, day 6, 1267 min);
+## ae1365 (risetime date 2018-10-15, day 0, 1291 min). 
+# ears risetime minutes: 
+## ae1365 (risetime date 2018-10-21, day 6, 1347 min);
+## ae1365 (risetime date 2018-10-15, day 0, 1342 min).
 
 df_analysis_wide3 <- 
   df_analysis_wide3 %>%
   dplyr::mutate(
     outlier =
       ifelse(
-        actilife_id == "ys8070" & sleep_offset_date == "2018-10-03", 1, 0
+        actilife_id == "vh2540" & risetime_date == "2018-10-04", 1, 0 # outlier in diary bedtime, diary risetime, diary sleep offset 
       ),
     outlier =
       ifelse(
-        actilife_id == "vh2540" & sleep_offset_date == "2018-10-10", 1, outlier
+        actilife_id == "vh2540" & risetime_date == "2018-10-09", 1, outlier # outlier in diary bedtime, diary sleep onset
       ),
     outlier =
       ifelse(
-        actilife_id == "kk1526" & sleep_offset_date == "2018-10-14", 1, outlier
+        actilife_id == "kk1526" & risetime_date == "2018-10-14", 1, outlier # outlier in diary bedtime, diary sleep onset 
       ),
     outlier =
       ifelse(
-        actilife_id == "jr4206" & sleep_offset_date == "2018-10-26", 1, outlier
+        actilife_id == "kj6506" & risetime_date == "2018-10-12", 1, outlier # outlier in actilife time-in-bed, actilife bedtime
       ),
     outlier =
       ifelse(
-        actilife_id == "vh2540" & sleep_offset_date == "2018-10-04", 1, outlier
+        actilife_id == "ss9468" & risetime_date == "2018-10-11", 1, outlier # outlier in actilife bedtime
       ),
     outlier =
       ifelse(
-        actilife_id == "kj6506" & sleep_offset_date == "2018-10-12", 1, outlier
+        actilife_id == "jd5772" & risetime_date == "2018-10-17", 1, outlier # outlier in actilife bedtime
       ),
     outlier =
       ifelse(
-        actilife_id == "ae1365" & sleep_offset_date == "2018-10-24", 1, outlier
+        actilife_id == "vh2540" & risetime_date == "2018-10-07", 1, outlier # outlier in actilife risetime
       ),
     outlier =
       ifelse(
-        actilife_id == "ss9468" & sleep_offset_date == "2018-10-11", 1, outlier
+        actilife_id == "jm8103" & risetime_date == "2018-10-26", 1, outlier # outlier in actilife risetime
       ),
     outlier =
       ifelse(
-        actilife_id == "jd5772" & sleep_offset_date == "2018-10-17", 1, outlier
+        actilife_id == "ae1365" & risetime_date == "2018-10-15", 1, outlier # outlier in ears time-in-bed, ears bedtime, ears risetime
       ),
     outlier =
       ifelse(
-        actilife_id == "vh2540" & sleep_offset_date == "2018-10-07", 1, outlier
-      ),
-    outlier =
-      ifelse(
-        actilife_id == "jm8103" & sleep_offset_date == "2018-10-26", 1, outlier
-      ),
-    outlier =
-      ifelse(
-        actilife_id == "ae1365" & sleep_offset_date == "2018-10-15", 1, outlier
-      ),
-    outlier =
-      ifelse(
-        actilife_id == "ae1365" & sleep_offset_date == "2018-10-21", 1, outlier
+        actilife_id == "ae1365" & risetime_date == "2018-10-21", 1, outlier # outlier in ears bedtime, ears risetime
       )
   )
-# 13 observations of outliers
+# 10 observations of outliers
 
 df_analysis_wide3_RemOut <-
   df_analysis_wide3 %>%
@@ -1965,93 +2500,51 @@ df_analysis_wide3_RemOut <-
 ##### DF without outliers (long form)
 
 ```{r}
-# --- Df without outliers ---
-# diary sleep duration: 
-## ys8070 (sleep offset date 2018-10-03, day 0, 30 min); 
-## vh2540 (sleep offset date 2018-10-10, day 7, 0 min).  
-# diary sleep onset minutes:  
-## ys8070 (sleep offset date 2018-10-03, day 0, 450 min);
-## kk1526 (sleep offset date 2018-10-14, day 5, 360 min); 
-## jr4206 (sleep offset date 2018-10-26, day 3, 382 min). 
-# diary sleep offset minutes: 
-## vh2540 (sleep offset date 2018-10-04, day 1, 860 min); 
-## vh2540 (sleep offset date 2018-10-10, day 7, 0 min).
-# actilife sleep duration: 
-## kj6506 (sleep offset date 2018-10-12, day 3, 1405 min); 
-## ae1365 (sleep offset date 2018-10-24, day 9, 1242 min). 
-# actilife sleep onset minutes: 
-## ss9468 (sleep offset date 2018-10-11, day 7, -514 min);
-## kj6506 (sleep offset date 2018-10-12, day 3, -599 min); 
-## jd5772 (sleep offset date 2018-10-17, day 5,  746).
-# actilife sleep offset minutes: 
-## vh2540 (sleep offset date 2018-10-07, day 4, 1149 min); 
-## jm8103 (sleep offset date 2018-10-26, day 7, 1054 min). 
-# ears sleep duration: 
-## ae1365 (sleep offset date 2018-10-15, day 0, 50.43 min). 
-# ears sleep onset minutes: 
-## ae1365 (sleep offset date 2018-10-21, day 6, 1267 min);
-## ae1365 (sleep offset date 2018-10-15, day 0, 1291 min). 
-# ears sleep offset minutes: 
-## ae1365 (sleep offset date 2018-10-21, day 6, 1347 min);
-## ae1365 (sleep offset date 2018-10-15, day 0, 1342 min).
-
 df_analysis4 <- 
   df_analysis4 %>%
   dplyr::mutate(
     outlier =
       ifelse(
-        actilife_id == "ys8070" & sleep_offset_date == "2018-10-03" & source == "diary", 1, 0
+        actilife_id == "vh2540" & risetime_date == "2018-10-04" & source == "diary", 1, 0
       ),
     outlier =
       ifelse(
-        actilife_id == "vh2540" & sleep_offset_date == "2018-10-10" & source == "diary", 1, outlier
+        actilife_id == "vh2540" & risetime_date == "2018-10-09" & source == "diary", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "kk1526" & sleep_offset_date == "2018-10-14" & source == "diary", 1, outlier
+        actilife_id == "kk1526" & risetime_date == "2018-10-14" & source == "diary", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "jr4206" & sleep_offset_date == "2018-10-26" & source == "diary", 1, outlier
+        actilife_id == "kj6506" & risetime_date == "2018-10-12" & source == "actilife", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "vh2540" & sleep_offset_date == "2018-10-04" & source == "diary", 1, outlier
+        actilife_id == "ss9468" & risetime_date == "2018-10-11" & source == "actilife", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "kj6506" & sleep_offset_date == "2018-10-12" & source == "actilife", 1, outlier
+        actilife_id == "jd5772" & risetime_date == "2018-10-17" & source == "actilife", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "ae1365" & sleep_offset_date == "2018-10-24" & source == "actilife", 1, outlier
+        actilife_id == "vh2540" & risetime_date == "2018-10-07" & source == "actilife", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "ss9468" & sleep_offset_date == "2018-10-11" & source == "actilife", 1, outlier
+        actilife_id == "jm8103" & risetime_date == "2018-10-26" & source == "actilife", 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "jd5772" & sleep_offset_date == "2018-10-17" & source == "actilife", 1, outlier
+        actilife_id == "ae1365" & risetime_date == "2018-10-15" & source == "ears" , 1, outlier
       ),
     outlier =
       ifelse(
-        actilife_id == "vh2540" & sleep_offset_date == "2018-10-07" & source == "actilife", 1, outlier
-      ),
-    outlier =
-      ifelse(
-        actilife_id == "jm8103" & sleep_offset_date == "2018-10-26" & source == "actilife", 1, outlier
-      ),
-    outlier =
-      ifelse(
-        actilife_id == "ae1365" & sleep_offset_date == "2018-10-15" & source == "ears" , 1, outlier
-      ),
-    outlier =
-      ifelse(
-        actilife_id == "ae1365" & sleep_offset_date == "2018-10-21" & source == "ears", 1, outlier
+        actilife_id == "ae1365" & risetime_date == "2018-10-21" & source == "ears", 1, outlier
       )
   )
-# 13 observations of outliers
+# 10 observations of outliers
 
 df_analysis4_RemOut <-
   df_analysis4 %>%
@@ -2064,8 +2557,60 @@ df_analysis4_RemOut <-
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 
-# 
+
 # ---- Diary ---- 
+
+### Time in Bed
+diary_tib_dist <- 
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(x = time_in_bed_minutes_diary)
+  ) + 
+  geom_boxplot(fill = "#E69F00")+ 
+  labs(
+    x = "Time-in-Bed (Min)"
+  ) 
+  
+# get mean and sd
+mean <- mean(df_analysis_wide3_RemOut$time_in_bed_minutes_diary, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$time_in_bed_minutes_diary, na.rm = TRUE)
+
+### Bedtime
+diary_bedtime_dist <-
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(x = bedtime_start_onset_minutes_diary)
+  ) + 
+  geom_boxplot(fill = "#E69F00") +
+    labs(
+    x = "Bedtime (Min from Midnight)"
+  ) 
+# get mean and sd
+mean <- mean(df_analysis_wide3_RemOut$bedtime_start_onset_minutes_diary, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$bedtime_start_onset_minutes_diary, na.rm = TRUE)
+
+### Risetime
+diary_risetime_dist <- 
+  df_analysis_wide3_RemOut %>%
+  ggplot(
+    aes(x = risetime_start_offset_minutes_diary)
+  ) + 
+  geom_boxplot(fill = "#E69F00") +
+    labs(
+    x = "Risetime (Min from Midnight)"
+  ) 
+# get mean and sd
+mean <- mean(df_analysis_wide3_RemOut$risetime_start_offset_minutes_diary, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$risetime_start_offset_minutes_diary, na.rm = TRUE)
+
+(diary_bedtime_dist + diary_risetime_dist + diary_tib_dist) +
+  plot_annotation(
+    title = "Distribution of Diary Self-Reported Bedtime, Risetime, Time-in-Bed",
+    subtitle = "",
+    caption = ""
+  )
+
+#############################################
 
 ### Sleep Duration
 diary_dur_dist <- 
@@ -2075,7 +2620,7 @@ diary_dur_dist <-
   ) + 
   geom_boxplot(fill = "#E69F00")+ 
   labs(
-    x = "Time in Bed (Min)"
+    x = "Sleep Duration (Min)"
   ) 
   
 # get mean and sd
@@ -2090,7 +2635,7 @@ diary_on_dist <-
   ) + 
   geom_boxplot(fill = "#E69F00") +
     labs(
-    x = "Bedtime (Min from Midnight)"
+    x = "Sleep Onset (Min from Midnight)"
   ) 
 # get mean and sd
 mean <- mean(df_analysis_wide3_RemOut$sleep_period_start_onset_minutes_diary, na.rm = TRUE)
@@ -2104,13 +2649,13 @@ diary_off_dist <-
   ) + 
   geom_boxplot(fill = "#E69F00") +
     labs(
-    x = "Rise Time (Min from Midnight)"
+    x = "Sleep Offset (Min from Midnight)"
   ) 
 # get mean and sd
 mean <- mean(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_diary, na.rm = TRUE)
 sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_diary, na.rm = TRUE)
 
-(diary_dur_dist +  diary_on_dist + diary_off_dist) +
+(diary_on_dist + diary_off_dist + diary_dur_dist) +
   plot_annotation(
     title = "Distribution of Diary Self-Reported Sleep",
     subtitle = "",
@@ -2120,51 +2665,51 @@ sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_diary, na.rm
 
 # ---- Actilife ---- 
 
-### Sleep Duration
-act_dur_dist <-
+### Time in Bed
+act_tib_dist <-
   df_analysis_wide3_RemOut %>%
   ggplot(
-    aes(x = sleep_duration_minutes_actilife)
+    aes(x = time_in_bed_minutes_actilife)
   ) + 
   geom_boxplot(fill = "#999999") +
   labs(
-    x = "Time in Bed (Min)"
+    x = "Time-in-Bed (Min)"
   )
 # get mean and sd
-mean <- mean(df_analysis_wide3_RemOut$sleep_duration_minutes_actilife, na.rm = TRUE)
-sd <- sd(df_analysis_wide3_RemOut$sleep_duration_minutes_actilife, na.rm = TRUE)
+mean <- mean(df_analysis_wide3_RemOut$time_in_bed_minutes_actilife, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$time_in_bed_minutes_actilife, na.rm = TRUE)
 
-### Sleep Onset
-act_on_dist<-
+### Bedtime
+act_bedtime_dist<-
   df_analysis_wide3_RemOut %>%
   ggplot(
-    aes(x = sleep_period_start_onset_minutes_actilife)
+    aes(x = bedtime_start_onset_minutes_actilife)
   ) + 
   geom_boxplot(fill = "#999999") +
   labs(
     x = "Bedtime (Min from Midnight)"
   ) 
 # get mean and sd
-mean <- mean(df_analysis_wide3_RemOut$sleep_period_start_onset_minutes_actilife, na.rm = TRUE)
-sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_onset_minutes_actilife, na.rm = TRUE)
+mean <- mean(df_analysis_wide3_RemOut$bedtime_start_onset_minutes_actilife, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$bedtime_start_onset_minutes_actilife, na.rm = TRUE)
 
-### Sleep Offset
-act_off_dist <-
+### Risetime
+act_risetime_dist <-
   df_analysis_wide3_RemOut %>%
   ggplot(
-    aes(x = sleep_period_start_offset_minutes_actilife)
+    aes(x = risetime_start_offset_minutes_actilife)
   ) + 
   geom_boxplot(fill = "#999999") +
   labs(
-    x = "Rise Time (Min from Midnight)"
+    x = "Risetime (Min from Midnight)"
   ) 
 # get mean and sd
-mean <- mean(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_actilife, na.rm = TRUE)
-sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_actilife, na.rm = TRUE)
+mean <- mean(df_analysis_wide3_RemOut$risetime_start_offset_minutes_actilife, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$risetime_start_offset_minutes_actilife, na.rm = TRUE)
 
-(act_dur_dist +  act_on_dist + act_off_dist) +
+(act_bedtime_dist + act_risetime_dist + act_tib_dist) +
   plot_annotation(
-    title = "Distribution of ActiGraph Wearable Sleep",
+    title = "Distribution of ActiGraph Wearable Bedtime, Risetime, Time-in-Bed",
     subtitle = "",
     caption = "",
     theme = theme(axis.text = element_text(size = 8))
@@ -2172,66 +2717,69 @@ sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_actilife, na
 
 # ---- ears ---- 
 
-### Sleep Duration
-ears_dur_dist <-
+### Time in Bed
+ears_tib_dist <-
   df_analysis_wide3_RemOut %>%
   ggplot(
-    aes(x = sleep_duration_minutes_ears)
+    aes(x = time_in_bed_minutes_ears)
   ) + 
   geom_boxplot(fill = "#56B4E9")  +
   labs(
-    x = "Time in Bed (Min)"
+    x = "Time-in-Bed (Min)"
   ) 
 # get mean and sd
-mean <- mean(df_analysis_wide3_RemOut$sleep_duration_minutes_ears, na.rm = TRUE)
-sd <- sd(df_analysis_wide3_RemOut$sleep_duration_minutes_ears, na.rm = TRUE)
+mean <- mean(df_analysis_wide3_RemOut$time_in_bed_minutes_ears, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$time_in_bed_minutes_ears, na.rm = TRUE)
 
-### Sleep Onset
-ears_on_dist <-
+### Bedtime
+ears_bedtime_dist <-
   df_analysis_wide3_RemOut %>%
   ggplot(
-    aes(x = sleep_period_start_onset_minutes_ears)
+    aes(x = bedtime_start_onset_minutes_ears)
   ) + 
   geom_boxplot(fill = "#56B4E9") +
   labs(
     x = "Bedtime (Min from Midnight)"
   ) 
 # get mean and sd
-mean <- mean(df_analysis_wide3_RemOut$sleep_period_start_onset_minutes_ears, na.rm = TRUE)
-sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_onset_minutes_ears, na.rm = TRUE)
+mean <- mean(df_analysis_wide3_RemOut$bedtime_start_onset_minutes_ears, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$bedtime_start_onset_minutes_ears, na.rm = TRUE)
 
-### Sleep Offset
-ears_off_dist <-
+### Risetime
+ears_risetime_dist <-
   df_analysis_wide3_RemOut %>%
   ggplot(
-    aes(x = sleep_period_start_offset_minutes_ears)
+    aes(x = risetime_start_offset_minutes_ears)
   ) + 
   geom_boxplot(fill = "#56B4E9") +
   labs(
-    x = "Rise Time (Min from Midnight)"
+    x = "Risetime (Min from Midnight)"
   ) 
 # get mean and sd
-mean <- mean(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_ears, na.rm = TRUE)
-sd <- sd(df_analysis_wide3_RemOut$sleep_period_start_offset_minutes_ears, na.rm = TRUE)
+mean <- mean(df_analysis_wide3_RemOut$risetime_start_offset_minutes_ears, na.rm = TRUE)
+sd <- sd(df_analysis_wide3_RemOut$risetime_start_offset_minutes_ears, na.rm = TRUE)
 
 
-(ears_dur_dist +  ears_on_dist + ears_off_dist) +
+(ears_bedtime_dist + ears_risetime_dist + ears_tib_dist) +
   plot_annotation(
-    title = "Distribution of EARS Mobile Sensing Sleep",
+    title = "Distribution of EARS Mobile Sensing Bedtime, Risetime, Time-in-Bed",
     subtitle = "",
     caption = "",
     theme = theme(axis.text = element_text(size = 8))
   )
 
 # plotting all 
-(diary_dur_dist +  diary_on_dist + diary_off_dist +
-    act_dur_dist +  act_on_dist + act_off_dist +
-  ears_dur_dist +  ears_on_dist + ears_off_dist) +
+(diary_on_dist | diary_off_dist | diary_dur_dist)  /
+  (diary_bedtime_dist | diary_risetime_dist | diary_tib_dist) /
+  (act_bedtime_dist |  act_risetime_dist | act_tib_dist) /
+  (ears_bedtime_dist | ears_risetime_dist | ears_tib_dist) +
   plot_annotation(
     title = "Supplemental Figure 1. Distributions of Sleep Features",
     subtitle = "",
-    caption = ""
+    caption = "",
+    tag_levels = 'A'
   )
+ggsave(filename = "SupplementalFig1.tiff", width = 12, height = 12)
 ```
 
 ## Number of Days per Person
@@ -2267,7 +2815,7 @@ df_analysis_wide3_RemOut %>%
 
 ```{r}
 # Save
-save(file = format(Sys.Date(), 'reliability_%B%e%Y.Rda'), list=c("df_analysis4","df_analysis_wide3", "df_analysis_wide3_RemOut", "df_analysis4_RemOut", "df_analysis_roster"))
+save(file = format(Sys.Date(), 'reliability_%B%e%Y.Rda'), list=c("df_analysis4","df_analysis_wide3", "df_analysis_wide3_RemOut", "df_analysis4_RemOut", "df_analysis_roster", "df_analysis_wide_demoxx"))
 ```
 
 \newpage
