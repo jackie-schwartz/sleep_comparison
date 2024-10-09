@@ -4,7 +4,7 @@ author:
 - name: Jaclyn S. Kirshenbaum
   affiliation: '1,2'
   corresponding: true
-  address: 1051 Riverside Drive, 3511 Pardes New York, NY 10032
+  address: 1051 Riverside Drive, 2313 Pardes New York, NY 10032
   email: Jaclyn.Kirshenbaum@nyspi.columbia.edu
   role:
   - "Analysis"
@@ -60,6 +60,7 @@ editor_options:
 ```{r setup}
 library("papaja")
 library("kableExtra")
+library("verification")
 r_refs("r-references.bib")
 ```
 
@@ -123,7 +124,8 @@ theme_set(theme_bw(base_size = 12,base_family = "Arial")); theme_update(panel.gr
 # Reading in files
 
 ```{r}
-load("reliability_June272024.Rda")
+load("~/Dropbox/Postdoc/15_Sleep_metrics_reliability/sleep_comparison/reliability_October 12024.Rda")
+
 ## Reading in files
 
 df_sleep_actilife_path  <- "~/Dropbox/Postdoc/15_Sleep_metrics_reliability/BatchSleepExportDetails(2020-03-03_14-13-01).csv"
@@ -1211,124 +1213,111 @@ No correlations between EARS and PSQI bedtime, ristime, and tib
 # EARS specificity = true wake periods divided by the sum of false wake and true wake periods. 
 # EARS accuracy = true sleep and true wake epochs divided by the sum of all true and false sleep and wake epochs
 
-# _ Sample 1 EARS v DIARY Spec/Sens:  ----
+# _ Sample 1 EARS v DIARY HITS & FALSE ALARMS  ----
 
-ears_spec_sens <- 
+ears_spec_sens_1440min <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>%
-  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, ends_with(c("bed_sensitivity", "bed_specificity", "bed_accuracy"))) %>%
-  drop_na(ears.diary_bed_sensitivity)
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, true_bed_EARS_DIARY:p_cr_ears.diary.p)
 
-ears_spec_sens %>% # specificty and sensitivity are against the diary data (this is more intuitive than the individual participant distributions)
-  ggplot() + 
- geom_line(aes(x = 1 - ears.diary_bed_specificity, y = ears.diary_bed_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
-  geom_point(aes(x = 1 - ears.diary_bed_specificity, y = ears.diary_bed_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
-  geom_abline(lty = 2, alpha = 0.5, color = "gray50", linewidth = 1.2) +
-  expand_limits(x = c(0,1), y = c(0,1)) +
-  theme_minimal() +
-  labs(
-    x = "1 - Specificity (FPR)",
-    y = "Sensitivity (TPR)",
-    title = "EARS ROC"
-  )
-ggsave("Figure3.jpeg", width = 6, height = 6)
+# person estimates
+ears_spec_sens_1440min.p <-
+  ears_spec_sens_1440min %>%
+  dplyr::select(actilife_id, ends_with("p")) %>%
+  distinct()
 
-mode(1 - ears_spec_sens$ears.diary_bed_specificity)
-mode(ears_spec_sens$ears.diary_bed_sensitivity)
-
-# EARS v DIARY (1440 min/day)
-ears_sens_spec_acc <- 
-  ears_spec_sens %>%
-  dplyr::ungroup() %>%
+ears_spec_sens_1440min.p_sum <- 
+  ears_spec_sens_1440min.p %>%
+  ungroup() %>%
   dplyr::summarise(
-    sensitivity = mean(ears.diary_bed_sensitivity), # TPR
-    specificity = mean(ears.diary_bed_specificity),
-    accuracy = mean(ears.diary_bed_accuracy),
-    fpr = mean(1 - ears_spec_sens$ears.diary_bed_specificity, na.rm=TRUE)
+    p_hit = mean(p_hit_ears.diary.p), # tpr
+    p_hit_min = min(p_hit_ears.diary.p),
+    p_hit_max = max(p_hit_ears.diary.p),
+    p_fa = mean(p_fa_ears.diary.p), # fpr
+    p_fa_min = min(p_fa_ears.diary.p),
+    p_fa_max = max(p_fa_ears.diary.p)
   ) 
+
 
 ################ SUPPLEMENTARY ################ 
 
-# _ Sample 1 Spec/Sens: EARS BED v DIARY SLEEP (1440)----
+# _ Sample 1 HITS & FALSE ALARMS: EARS BED v DIARY SLEEP (1440)----
 
-ears_spec_sens_supp <- 
-  df_analysis_wide3_RemOut %>% 
-  filter(sample_1_flag == 1) %>% 
-  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, ends_with(c("sleep_sensitivity", "sleep_specificity", "sleep_accuracy"))) %>% 
-  drop_na(ears.diary_sleep_sensitivity)
-
-ears_spec_sens_supp %>% 
-  ggplot() + 
- geom_line(aes(x = 1 - ears.diary_sleep_specificity, y = ears.diary_sleep_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
-  geom_point(aes(x = 1 - ears.diary_sleep_specificity, y = ears.diary_sleep_sensitivity), linewidth = 1.5, color = "#56B4E9", alpha = .5) +
-  geom_abline(lty = 2, alpha = 0.5, color = "gray50", linewidth = 1.2) +
-  expand_limits(x = c(0,1), y = c(0,1)) +
-  theme_minimal() +
-  labs(
-    x = "1 - Specificity (FPR)",
-    y = "Sensitivity (TPR)",
-    title = "EARS ROC"
-  )
-
-mode(1 - ears_spec_sens_supp$ears.diary_sleep_specificity) # 0
-mode(ears_spec_sens_supp$ears.diary_sleep_sensitivity) # 1
-
-ears_spec_sens_acc_supp <- 
-  ears_spec_sens_supp %>%
-  dplyr::ungroup() %>%
-  dplyr::summarise(
-    sensitivity = mean(ears.diary_sleep_sensitivity), # TPR
-    specificity = mean(ears.diary_sleep_specificity),
-    accuracy = mean(ears.diary_sleep_accuracy),
-    fpr = mean(1 - ears_spec_sens_supp$ears.diary_sleep_specificity, na.rm=TRUE)
-  ) 
-
-
-# _ Sample 1 EARS v DIARY Spec/Sens TRUNCATED: EARS (8:30-10:39) v Diary ----
-
-ears_spec_sens_trunc <- 
+ears_spec_sens_1440min_supp <- 
   df_analysis_wide3_RemOut %>% 
   filter(sample_1_flag == 1) %>%
-  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, ends_with(c("bed_sensitivity_trunc", "bed_specificity_trunc", "bed_accuracy_trunc"))) %>%
-  drop_na(ears.diary_bed_sensitivity_trunc)
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, true_sleep:p_cr_ears_diary_sleep.p)
 
+# person estimates
+ears_spec_sens_1440min.p_supp <-
+  ears_spec_sens_1440min_supp %>%
+  dplyr::select(actilife_id, ends_with(".p")) %>%
+  distinct()
 
-mode(1 - ears_spec_sens_trunc$ears.diary_bed_specificity_trunc) # 0
-mode(ears_spec_sens_trunc$ears.diary_bed_sensitivity_trunc) # 1
-
-ears_spec_sens_trunc_acc <- 
-  ears_spec_sens_trunc %>%
-  dplyr::ungroup() %>%
+ears_spec_sens_1440min.p_supp_sum <- 
+  ears_spec_sens_1440min.p_supp %>%
+  ungroup() %>%
   dplyr::summarise(
-    sensitivity = mean(ears.diary_bed_sensitivity_trunc), # TPR
-    specificity = mean(ears.diary_bed_specificity_trunc),
-    accuracy = mean(ears.diary_bed_accuracy_trunc),
-    fpr = mean(1 - ears_spec_sens_trunc$ears.diary_bed_specificity_trunc, na.rm=TRUE)
+    p_hit = mean(p_hit_ears_diary_sleep.p), # tpr
+    p_hit_min = min(p_hit_ears_diary_sleep.p),
+    p_hit_max = max(p_hit_ears_diary_sleep.p),
+    p_fa = mean( p_fa_ears_diary_sleep.p), # fpr
+    p_fa_min = min( p_fa_ears_diary_sleep.p),
+    p_fa_max = max( p_fa_ears_diary_sleep.p)
   ) 
 
+# _ Sample 1 EARS v DIARY HIT/FALSE TRUNCATED: EARS (8:30-10:39) v Diary ----
 
-# _ Sample 2 EARS v ACTIGRAPH Spec/Sens:  ----
+ears_spec_sens_1440min_trunc <- 
+  df_analysis_wide3_RemOut %>% 
+  filter(sample_1_flag == 1) %>%
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, true_bed_EARS_DIARY_t:p_cr_ears_diary_t.p)
+
+# person estimates
+ears_spec_sens_1440min.p_trunc <-
+  ears_spec_sens_1440min_trunc %>%
+  dplyr::select(actilife_id, ends_with(".p")) %>%
+  distinct()
+
+ears_spec_sens_1440min.p_trunc_sum <- 
+  ears_spec_sens_1440min.p_trunc %>%
+  ungroup() %>%
+  dplyr::summarise(
+    p_hit = mean(p_hit_ears_diary_t.p), # tpr
+    p_hit_min = min(p_hit_ears_diary_t.p),
+    p_hit_max = max(p_hit_ears_diary_t.p),
+    p_fa = mean(p_fa_ears_diary_t.p), # fpr
+    p_fa_min = min(p_fa_ears_diary_t.p),
+    p_fa_max = max(p_fa_ears_diary_t.p)
+  ) 
+
+# _ Sample 2 EARS v ACTIGRAPH HIT/FALSE:  ----
 
 # EARS v ActiGraph
-act_spec_sens <-
+
+ears_spec_sens_act <- 
   df_analysis_wide3_RemOut %>% 
-  filter(sample_2_flag == 1) %>%
-  dplyr::select(actilife_id, risetime_date, day_num, sample_2_flag, ends_with(c("bed_sensitivity", "bed_specificity", "bed_accuracy"))) %>%
-  drop_na(ears.actilife_bed_accuracy)
+  filter(sample_1_flag == 1) %>%
+  dplyr::select(actilife_id, risetime_date, day_num, sample_1_flag, true_bed_EARS_ACT:p_cr_ears_actilife.p)
 
-mode(1 - act_spec_sens$ears.actilife_bed_specificity) # 0
-mode(act_spec_sens$ears.actilife_bed_sensitivity) # 1
+# person estimates
+ears_spec_sens_act.p <-
+  ears_spec_sens_act %>%
+  dplyr::select(actilife_id, ends_with(".p")) %>%
+  distinct()
 
-act_spec_sens_acc <- 
-  act_spec_sens %>%
-  dplyr::ungroup() %>%
+ears_spec_sens_act.p_sum <- 
+  ears_spec_sens_act.p %>%
+  ungroup() %>%
+  drop_na(true_bed_EARS_ACT.p) %>%
   dplyr::summarise(
-    sensitivity = mean(ears.actilife_bed_sensitivity), # TPR
-    specificity = mean(ears.actilife_bed_specificity),
-    accuracy = mean(ears.actilife_bed_accuracy),
-    fpr = mean(1 - act_spec_sens$ears.actilife_bed_specificity, na.rm=TRUE)
+    p_hit = mean(p_hit_ears_actilife.p), # tpr
+    p_hit_min = min(p_hit_ears_actilife.p),
+    p_hit_max = max(p_hit_ears_actilife.p),
+    p_fa = mean(p_fa_ears_actilife.p), # fpr
+    p_fa_min = min(p_fa_ears_actilife.p),
+    p_fa_max = max(p_fa_ears_actilife.p)
   ) 
-
 
 
 ```

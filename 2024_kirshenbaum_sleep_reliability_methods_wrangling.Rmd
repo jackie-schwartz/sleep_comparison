@@ -969,8 +969,8 @@ df_demo <-
 psqi_alpha <- 
   df_demo %>%
   dplyr::select(actilife_id, starts_with("psqi"), -psqi_global_score, -psqi_1_gone_to_bed_timestamp_hms, -psqi_3_wakeup_timestamp_hms, -actilife_id)
-library(psych)
-alpha(psqi_alpha, check.keys = TRUE)
+library(ltm)
+cronbach.alpha(psqi_alpha, standardized = TRUE, CI = TRUE) # 0.66
 ```   
 
 
@@ -1412,13 +1412,25 @@ df_sp <- data.frame(minutes = seq(1, 1440, by = 1))
 df_acc_ears <- data.frame(
   actilife_id <- as.character(),
   day_num <- as.character(),
-  true_bed <- as.character(),
-  false_bed <- as.character(),
-  true_rise <- as.character(),
-  false_rise <- as.character(),
-  sensitivity <- as.character(),
-  specificity <- as.character(),
-  accuracy <- as.character()
+  true_bed_EARS_DIARY <- as.character(),
+  false_bed_EARS_DIARY <- as.character(),
+  true_rise_EARS_DIARY <- as.character(),
+  false_rise_EARS_DIARY <- as.character(),
+  sensitivity_EARS_DIARY <- as.character(),
+  specificity_EARS_DIARY <- as.character(),
+  accuracy_EARS_DIARY <- as.character()
+)
+
+df_acc_ears_long <- data.frame(
+  actilife_id <- as.character(),
+  day_num <- as.character(),
+  minutes <- as.character(),
+  diary_bed <- as.character(),
+  ears_bed <- as.character(),
+  true_bed_EARS_DIARY <- as.character(),
+  false_bed_EARS_DIARY <- as.character(),
+  true_rise_EARS_DIARY <- as.character(),
+  false_rise_EARS_DIARY <- as.character()  
 )
 
 for(i in seq_along(unique_actilife_id)){
@@ -1435,16 +1447,27 @@ for(i in seq_along(unique_actilife_id)){
   
   df_epoch_by_epoch <- data.frame(
     day_num <- as.character(),
-    true_bed <- as.character(),
-    false_bed <- as.character(),
-    true_rise <- as.character(),
-    false_rise <- as.character(),
-    sensitivity <- as.character(),
-    specificity <- as.character(),
-    accuracy <- as.character()
+    true_bed_EARS_DIARY <- as.character(),
+    false_bed_EARS_DIARY <- as.character(),
+    true_rise_EARS_DIARY <- as.character(),
+    false_rise_EARS_DIARY <- as.character(),
+    sensitivity_EARS_DIARY <- as.character(),
+    specificity_EARS_DIARY <- as.character(),
+    accuracy_EARS_DIARY <- as.character()
   )
-
-
+  
+  df_epoch_by_epoch_long <- data.frame(
+    minutes <- as.character(),
+    diary_bed <- as.character(),
+    ears_bed <- as.character(),
+    day_num <- as.character(),
+    true_bed_EARS_DIARY <- as.character(),
+    false_bed_EARS_DIARY <- as.character(),
+    true_rise_EARS_DIARY <- as.character(),
+    false_rise_EARS_DIARY <- as.character()
+    )
+  
+  
   for(j in seq_along(unique_day_num)){
  
 
@@ -1480,32 +1503,42 @@ df_temp_j <-
 df_temp_j <-
   df_temp_j %>% 
   dplyr::mutate(
-    true_bed = as.numeric(ifelse((diary_bed == 1 & ears_bed == 1), 1, 0)),
-    false_bed = as.numeric(ifelse((is.na(diary_bed) & ears_bed == 1), 1, 0)),
-    true_rise = as.numeric(ifelse((is.na(diary_bed) & is.na(ears_bed)), 1, 0)),
-    false_rise = as.numeric(ifelse((diary_bed == 1 & is.na(ears_bed)), 1, 0))
+    true_bed_EARS_DIARY = as.numeric(ifelse((diary_bed == 1 & ears_bed == 1 & !is.na(diary_bed) & !is.na(ears_bed)), 1, 0)),
+    false_bed_EARS_DIARY = as.numeric(ifelse((is.na(diary_bed) & ears_bed == 1 & !is.na(ears_bed)), 1, 0)),
+    true_rise_EARS_DIARY = as.numeric(ifelse((is.na(diary_bed) & is.na(ears_bed)), 1, 0)),
+    false_rise_EARS_DIARY = as.numeric(ifelse((diary_bed == 1 & is.na(ears_bed) & !is.na(diary_bed)), 1, 0))
     )
 
          
 df_temp_j_agg <- df_temp_j %>% 
   dplyr::group_by(day_num) %>% 
   dplyr::summarise(
-    true_bed = sum(true_bed, na.rm = TRUE),
-    false_bed = sum(false_bed, na.rm = TRUE),
-    true_rise = sum(true_rise, na.rm = TRUE),
-    false_rise = sum(false_rise, na.rm = TRUE)
+    true_bed_EARS_DIARY = sum(true_bed_EARS_DIARY, na.rm = TRUE), # num hits
+    false_bed_EARS_DIARY = sum(false_bed_EARS_DIARY, na.rm = TRUE), # num false alarms
+    true_rise_EARS_DIARY = sum(true_rise_EARS_DIARY, na.rm = TRUE), # num correct rejects
+    false_rise_EARS_DIARY = sum(false_rise_EARS_DIARY, na.rm = TRUE) # num misses
   ) %>% 
   dplyr::ungroup() %>% 
   dplyr::mutate(
-    ears.diary_bed_sensitivity = true_bed/(true_bed + false_bed),
-    ears.diary_bed_specificity = true_rise/(false_rise + true_rise),
+    ears.diary_bed_sensitivity = 
+      true_bed_EARS_DIARY/(true_bed_EARS_DIARY + false_bed_EARS_DIARY),
+    ears.diary_bed_specificity =
+      true_rise_EARS_DIARY/(false_rise_EARS_DIARY + true_rise_EARS_DIARY),
     ears.diary_bed_accuracy = 
-      (true_bed + true_rise) / (true_bed + false_bed + true_rise + false_rise)
+      (true_bed_EARS_DIARY + true_rise_EARS_DIARY) / (true_bed_EARS_DIARY + false_bed_EARS_DIARY + true_rise_EARS_DIARY + false_rise_EARS_DIARY),
+    p_hit_ears.diary = 
+      (true_bed_EARS_DIARY) / (true_bed_EARS_DIARY + false_rise_EARS_DIARY),
+    p_fa_ears.diary = 
+      (false_bed_EARS_DIARY) / (false_bed_EARS_DIARY + true_rise_EARS_DIARY),
+    p_miss_ears.diary =
+      (false_rise_EARS_DIARY) / (false_rise_EARS_DIARY + true_bed_EARS_DIARY),
+    p_cr_ears.diary = 
+      (true_rise_EARS_DIARY) / (true_rise_EARS_DIARY + false_bed_EARS_DIARY)
     )
-
 
       
     df_epoch_by_epoch <- rbind(df_epoch_by_epoch, df_temp_j_agg)
+    df_epoch_by_epoch_long <- rbind(df_epoch_by_epoch_long, df_temp_j)
 
     # rm(df_temp_j, df_temp_j_agg, df_diary_sleep, df_ears_sleep)  
     
@@ -1514,8 +1547,13 @@ df_temp_j_agg <- df_temp_j %>%
   df_epoch_by_epoch <- 
     df_epoch_by_epoch %>% 
     dplyr::mutate(actilife_id = unique_actilife_id[i])
+  
+    df_epoch_by_epoch_long <- 
+    df_epoch_by_epoch_long %>%
+    dplyr::mutate(actilife_id = unique_actilife_id[i])
  
   df_acc_ears <- rbind(df_acc_ears, df_epoch_by_epoch)
+  df_acc_ears_long <- rbind(df_acc_ears_long, df_epoch_by_epoch_long)
    
  #  rm(df_temp_i, df_epoch_by_epoch)
   
@@ -1525,6 +1563,36 @@ rm(df_sp)
   
 # match into analysis dataset
 df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears, by = c("actilife_id", "day_num"))
+
+df_acc_ears_person <-
+  df_acc_ears_long %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    true_bed_EARS_DIARY.p = sum(true_bed_EARS_DIARY, na.rm = TRUE), # num hits
+    false_bed_EARS_DIARY.p = sum(false_bed_EARS_DIARY, na.rm = TRUE), # num false alarms
+    true_rise_EARS_DIARY.p = sum(true_rise_EARS_DIARY, na.rm = TRUE), # num correct rejects
+    false_rise_EARS_DIARY.p = sum(false_rise_EARS_DIARY, na.rm = TRUE) # num misses
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    ears.diary_bed_sensitivity.p = 
+      true_bed_EARS_DIARY.p/(true_bed_EARS_DIARY.p + false_bed_EARS_DIARY.p),
+    ears.diary_bed_specificity.p =
+      true_rise_EARS_DIARY.p/(false_rise_EARS_DIARY.p + true_rise_EARS_DIARY.p),
+    ears.diary_bed_accuracy.p = 
+      (true_bed_EARS_DIARY.p + true_rise_EARS_DIARY.p) / (true_bed_EARS_DIARY.p + false_bed_EARS_DIARY.p + true_rise_EARS_DIARY.p + false_rise_EARS_DIARY.p),
+    p_hit_ears.diary.p = 
+      (true_bed_EARS_DIARY.p) / (true_bed_EARS_DIARY.p + false_rise_EARS_DIARY.p),
+    p_fa_ears.diary.p = 
+      (false_bed_EARS_DIARY.p) / (false_bed_EARS_DIARY.p + true_rise_EARS_DIARY.p),
+    p_miss_ears.diary.p =
+      (false_rise_EARS_DIARY.p) / (false_rise_EARS_DIARY.p + true_bed_EARS_DIARY.p),
+    p_cr_ears.diary.p = 
+      (true_rise_EARS_DIARY.p) / (true_rise_EARS_DIARY.p + false_bed_EARS_DIARY.p)
+    )
+
+# match into analysis dataset
+df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_person, by = c("actilife_id"))
 
 # _ _ _ actilife ---- 
 
@@ -1546,13 +1614,25 @@ df_sp <- data.frame(minutes = seq(1, 1440, by = 1))
 df_acc_actilife <- data.frame(
   actilife_id <- as.character(),
   day_num <- as.character(),
-  true_bed <- as.character(),
-  false_bed <- as.character(),
-  true_rise <- as.character(),
-  false_rise <- as.character(),
-  sensitivity <- as.character(),
-  specificity <- as.character(),
-  accuracy <- as.character()
+  true_bed_EARS_ACT <- as.character(),
+  false_bed_EARS_ACT <- as.character(),
+  true_rise_EARS_ACT <- as.character(),
+  false_rise_EARS_ACT <- as.character(),
+  sensitivity_EARS_ACT <- as.character(),
+  specificity_EARS_ACT <- as.character(),
+  accuracy_EARS_ACT <- as.character()
+)
+
+df_acc_actilife_long <- data.frame(
+  actilife_id <- as.character(),
+  day_num <- as.character(),
+  minutes <- as.character(),
+  actilife_bed <- as.character(),
+  ears_bed <- as.character(),
+  true_bed_EARS_ACT <- as.character(),
+  false_bed_EARS_ACT <- as.character(),
+  true_rise_EARS_ACT <- as.character(),
+  false_rise_EARS_ACT <- as.character()  
 )
 
 
@@ -1571,15 +1651,25 @@ for(i in seq_along(unique_actilife_id)){
   
   df_epoch_by_epoch <- data.frame(
     day_num <- as.character(),
-    true_bed <- as.character(),
-    false_bed <- as.character(),
-    true_rise <- as.character(),
-    false_rise <- as.character(),
-    sensitivity <- as.character(),
-    specificity <- as.character(),
-    accuracy <- as.character()
+    true_bed_EARS_ACT <- as.character(),
+    false_bed_EARS_ACT <- as.character(),
+    true_rise_EARS_ACT <- as.character(),
+    false_rise_EARS_ACT <- as.character(),
+    sensitivity_EARS_ACT <- as.character(),
+    specificity_EARS_ACT <- as.character(),
+    accuracy_EARS_ACT <- as.character()
   )
 
+  df_epoch_by_epoch_long <- data.frame(
+    minutes <- as.character(),
+    actilife_bed <- as.character(),
+    ears_bed <- as.character(),
+    day_num <- as.character(),
+    true_bed_EARS_ACT<- as.character(),
+    false_bed_EARS_ACT <- as.character(),
+    true_rise_EARS_ACT <- as.character(),
+    false_rise_EARS_ACT <- as.character()
+    )
   
   for(j in seq_along(unique_day_num)){
 
@@ -1609,40 +1699,62 @@ for(i in seq_along(unique_actilife_id)){
     df_temp_j <- 
       df_temp_j %>% 
       dplyr::mutate(
-        true_bed = as.numeric(ifelse((actilife_bed == 1 & ears_bed == 1), 1, 0)),
-        false_bed = as.numeric(ifelse((is.na(actilife_bed) & ears_bed == 1), 1, 0)),
-        true_rise = as.numeric(ifelse((is.na(actilife_bed) & is.na(ears_bed)), 1, 0)),
-        false_rise = as.numeric(ifelse((actilife_bed == 1 & is.na(ears_bed)), 1, 0))
+        true_bed_EARS_ACT =
+          as.numeric(ifelse((actilife_bed == 1 & ears_bed == 1 & !is.na(actilife_bed) & !is.na(ears_bed)), 1, 0)),
+        false_bed_EARS_ACT =
+          as.numeric(ifelse((is.na(actilife_bed) & ears_bed == 1 & !is.na(ears_bed)), 1, 0)),
+        true_rise_EARS_ACT =
+          as.numeric(ifelse((is.na(actilife_bed) & is.na(ears_bed)), 1, 0)),
+        false_rise_EARS_ACT = 
+          as.numeric(ifelse((actilife_bed == 1 & is.na(ears_bed) & !is.na(actilife_bed)), 1, 0))
       )
     
     df_temp_j_agg <-
       df_temp_j %>% 
       dplyr::group_by(day_num) %>% 
       dplyr::summarise(
-        true_bed = sum(true_bed, na.rm = TRUE),
-        false_bed = sum(false_bed, na.rm = TRUE),
-        true_rise = sum(true_rise, na.rm = TRUE),
-        false_rise = sum(false_rise, na.rm = TRUE)
+        true_bed_EARS_ACT = sum(true_bed_EARS_ACT, na.rm = TRUE), # num hits
+        false_bed_EARS_ACT = sum(false_bed_EARS_ACT, na.rm = TRUE), # num false alarms
+        true_rise_EARS_ACT = sum(true_rise_EARS_ACT, na.rm = TRUE), # num correct rejects
+        false_rise_EARS_ACT = sum(false_rise_EARS_ACT, na.rm = TRUE) # num misses
       ) %>% 
       dplyr::ungroup() %>% 
       dplyr::mutate(
-        ears.actilife_bed_sensitivity = true_bed/(true_bed + false_bed),
-        ears.actilife_bed_specificity = true_rise/(false_rise + true_rise),
-        ears.actilife_bed_accuracy = (true_bed + true_rise) / (true_bed + false_bed + true_rise + false_rise)
+        ears.actilife_bed_sensitivity =
+          true_bed_EARS_ACT/(true_bed_EARS_ACT + false_bed_EARS_ACT),
+        ears.actilife_bed_specificity =
+          true_rise_EARS_ACT/(false_rise_EARS_ACT + true_rise_EARS_ACT),
+        ears.actilife_bed_accuracy = 
+          (true_bed_EARS_ACT + true_rise_EARS_ACT) / (true_bed_EARS_ACT + false_bed_EARS_ACT + true_rise_EARS_ACT + false_rise_EARS_ACT),
+        p_hit_ears.act = 
+          (true_bed_EARS_ACT) / (true_bed_EARS_ACT + false_rise_EARS_ACT),
+        p_fa_ears.act = 
+          (false_bed_EARS_ACT) / (false_bed_EARS_ACT + true_rise_EARS_ACT),
+        p_miss_ears.act =
+          (false_rise_EARS_ACT) / (false_rise_EARS_ACT + true_bed_EARS_ACT),
+        p_cr_ears.act = 
+          (true_rise_EARS_ACT) / (true_rise_EARS_ACT + false_bed_EARS_ACT)        
         
       )
-    
-    
+  
     df_epoch_by_epoch <- rbind(df_epoch_by_epoch, df_temp_j_agg)
+    df_epoch_by_epoch_long <- rbind(df_epoch_by_epoch_long, df_temp_j)
+    
     
     rm(df_temp_j, df_temp_j_agg, df_actilife_bed, df_ears_bed)  
     
   }
   
+  df_epoch_by_epoch <-
+    df_epoch_by_epoch %>% 
+    dplyr::mutate(actilife_id = unique_actilife_id[i])
   
-  df_epoch_by_epoch <- df_epoch_by_epoch %>% dplyr::mutate(actilife_id = unique_actilife_id[i])
+  df_epoch_by_epoch_long <- 
+    df_epoch_by_epoch_long %>%
+    dplyr::mutate(actilife_id = unique_actilife_id[i])
   
   df_acc_actilife <- rbind(df_acc_actilife, df_epoch_by_epoch)
+  df_acc_actilife_long <- rbind(df_acc_actilife_long, df_epoch_by_epoch_long)  
   
   rm(df_temp_i, df_epoch_by_epoch)
   
@@ -1650,9 +1762,38 @@ for(i in seq_along(unique_actilife_id)){
 
 rm(df_sp)
 
-
 # match into analysis dataset
 df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_actilife, by = c("actilife_id", "day_num"))
+
+df_acc_actilife_person <-
+  df_acc_actilife_long %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    true_bed_EARS_ACT.p = sum(true_bed_EARS_ACT, na.rm = TRUE), # num hits
+    false_bed_EARS_ACT.p = sum(false_bed_EARS_ACT, na.rm = TRUE), # num false alarms
+    true_rise_EARS_ACT.p = sum(true_rise_EARS_ACT, na.rm = TRUE), # num correct rejects
+    false_rise_EARS_ACT.p = sum(false_rise_EARS_ACT, na.rm = TRUE) # num misses
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    ears.actilife_bed_sensitivity.p = 
+      true_bed_EARS_ACT.p/(true_bed_EARS_ACT.p + false_bed_EARS_ACT.p),
+    ears.actilife_bed_specificity.p =
+      true_rise_EARS_ACT.p/(false_rise_EARS_ACT.p + true_rise_EARS_ACT.p),
+    ears.actilife_bed_accuracy.p = 
+      (true_bed_EARS_ACT.p + true_rise_EARS_ACT.p) / (true_bed_EARS_ACT.p + false_bed_EARS_ACT.p + true_rise_EARS_ACT.p + false_rise_EARS_ACT.p),
+    p_hit_ears_actilife.p = 
+      (true_bed_EARS_ACT.p) / (true_bed_EARS_ACT.p + false_rise_EARS_ACT.p),
+    p_fa_ears_actilife.p = 
+      (false_bed_EARS_ACT.p) / (false_bed_EARS_ACT.p + true_rise_EARS_ACT.p),
+    p_miss_ears_actilife.p =
+      (false_rise_EARS_ACT.p) / (false_rise_EARS_ACT.p + true_bed_EARS_ACT.p),
+    p_cr_ears_actilife.p = 
+      (true_rise_EARS_ACT.p) / (true_rise_EARS_ACT.p + false_bed_EARS_ACT.p)
+  )
+
+# match into analysis dataset
+df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_actilife_person, by = c("actilife_id"))
 
 ```
 
@@ -1681,13 +1822,25 @@ df_sp_trunc <- data.frame(minutes = seq(1, 849, by = 1))
 df_acc_ears_trunc <- data.frame(
   actilife_id <- as.character(),
   day_num <- as.character(),
-  true_bed <- as.character(),
-  false_bed <- as.character(),
-  true_rise <- as.character(),
-  false_rise <- as.character(),
-  sensitivity <- as.character(),
-  specificity <- as.character(),
-  accuracy <- as.character()
+  true_bed_EARS_DIARY_t <- as.character(),
+  false_bed_EARS_DIARY_t <- as.character(),
+  true_rise_EARS_DIARY_t <- as.character(),
+  false_rise_EARS_DIARY_t <- as.character(),
+  sensitivity_EARS_DIARY_t <- as.character(),
+  specificity_EARS_DIARY_t <- as.character(),
+  accuracy_EARS_DIARY_t <- as.character()
+)
+  
+df_acc_ears_trunc_long <- data.frame(
+  actilife_id <- as.character(),
+  day_num <- as.character(),
+  minutes <- as.character(),
+  diary_bed <- as.character(),
+  ears_bed <- as.character(),
+  true_bed_EARS_DIARY_t <- as.character(),
+  false_bed_EARS_DIARY_t <- as.character(),
+  true_rise_EARS_DIARY_t <- as.character(),
+  false_rise_EARS_DIARY_t <- as.character()  
 )
 
 for(i in seq_along(unique_actilife_id_trunc)){
@@ -1704,14 +1857,25 @@ for(i in seq_along(unique_actilife_id_trunc)){
   
   df_epoch_by_epoch_trunc <- data.frame(
     day_num <- as.character(),
-    true_bed <- as.character(),
-    false_bed <- as.character(),
-    true_rise <- as.character(),
-    false_rise <- as.character(),
-    sensitivity <- as.character(),
-    specificity <- as.character(),
-    accuracy <- as.character()
+    true_bed_EARS_DIARY_t <- as.character(),
+    false_bed_EARS_DIARY_t <- as.character(),
+    true_rise_EARS_DIARY_t <- as.character(),
+    false_rise_EARS_DIARY_t <- as.character(),
+    sensitivity_EARS_DIARY_t <- as.character(),
+    specificity_EARS_DIARY_t <- as.character(),
+    accuracy_EARS_DIARY_t <- as.character()
   )
+    
+    df_epoch_by_epoch_trunc_long <- data.frame(
+    minutes <- as.character(),
+    diary_bed <- as.character(),
+    ears_bed <- as.character(),
+    day_num <- as.character(),
+    true_bed_EARS_DIARY_t <- as.character(),
+    false_bed_EARS_DIARY_t <- as.character(),
+    true_rise_EARS_DIARY_t <- as.character(),
+    false_rise_EARS_DIARY_t <- as.character()
+    )
 
 
   for(j in seq_along(unique_day_num_trunc)){
@@ -1749,10 +1913,14 @@ df_temp_j_trunc <-
 df_temp_j_trunc <-
   df_temp_j_trunc %>% 
   dplyr::mutate(
-    true_bed = as.numeric(ifelse((diary_bed == 1 & ears_bed == 1), 1, 0)),
-    false_bed = as.numeric(ifelse((is.na(diary_bed) & ears_bed == 1), 1, 0)),
-    true_rise = as.numeric(ifelse((is.na(diary_bed) & is.na(ears_bed)), 1, 0)),
-    false_rise = as.numeric(ifelse((diary_bed == 1 & is.na(ears_bed)), 1, 0))
+    true_bed_EARS_DIARY_t = 
+      as.numeric(ifelse((diary_bed == 1 & ears_bed == 1 & !is.na(diary_bed) & !is.na(ears_bed)), 1, 0)),
+    false_bed_EARS_DIARY_t =
+      as.numeric(ifelse((is.na(diary_bed) & ears_bed == 1 & !is.na(ears_bed)), 1, 0)),
+    true_rise_EARS_DIARY_t = 
+      as.numeric(ifelse((is.na(diary_bed) & is.na(ears_bed)), 1, 0)),
+    false_rise_EARS_DIARY_t = 
+      as.numeric(ifelse((diary_bed == 1 & is.na(ears_bed) & !is.na(diary_bed)), 1, 0))
     )
 
          
@@ -1760,33 +1928,48 @@ df_temp_j_agg_trunc <-
   df_temp_j_trunc %>% 
   dplyr::group_by(day_num) %>% 
   dplyr::summarise(
-    true_bed = sum(true_bed, na.rm = TRUE),
-    false_bed = sum(false_bed, na.rm = TRUE),
-    true_rise = sum(true_rise, na.rm = TRUE),
-    false_rise = sum(false_rise, na.rm = TRUE)
+    true_bed_EARS_DIARY_t = sum(true_bed_EARS_DIARY_t, na.rm = TRUE), # num hits
+    false_bed_EARS_DIARY_t = sum(false_bed_EARS_DIARY_t, na.rm = TRUE), # num false alarms
+    true_rise_EARS_DIARY_t = sum(true_rise_EARS_DIARY_t, na.rm = TRUE), # num correct rejects
+    false_rise_EARS_DIARY_t = sum(false_rise_EARS_DIARY_t, na.rm = TRUE) # num misses
   ) %>% 
   dplyr::ungroup() %>% 
   dplyr::mutate(
-    ears.diary_bed_sensitivity_trunc = true_bed/(true_bed + false_bed),
-    ears.diary_bed_specificity_trunc = true_rise/(false_rise + true_rise),
+    ears.diary_bed_sensitivity_trunc = 
+      true_bed_EARS_DIARY_t/(true_bed_EARS_DIARY_t + false_bed_EARS_DIARY_t),
+    ears.diary_bed_specificity_trunc =
+      true_rise_EARS_DIARY_t/(false_rise_EARS_DIARY_t + true_rise_EARS_DIARY_t),
     ears.diary_bed_accuracy_trunc = 
-      (true_bed + true_rise) / (true_bed + false_bed + true_rise + false_rise)
+      (true_bed_EARS_DIARY_t + true_rise_EARS_DIARY_t) / (true_bed_EARS_DIARY_t + false_bed_EARS_DIARY_t + true_rise_EARS_DIARY_t + false_rise_EARS_DIARY_t),
+    p_hit_ears.diary_t = 
+      (true_bed_EARS_DIARY_t) / (true_bed_EARS_DIARY_t + false_rise_EARS_DIARY_t),
+    p_fa_ears.diary_t = 
+      (false_bed_EARS_DIARY_t) / (false_bed_EARS_DIARY_t + true_rise_EARS_DIARY_t),
+    p_miss_ears.diary_t =
+      (false_rise_EARS_DIARY_t) / (false_rise_EARS_DIARY_t + true_bed_EARS_DIARY_t),
+    p_cr_ears.diary_t = 
+      (true_rise_EARS_DIARY_t) / (true_rise_EARS_DIARY_t + false_bed_EARS_DIARY_t)    
     )
-
 
       
     df_epoch_by_epoch_trunc <- rbind(df_epoch_by_epoch_trunc, df_temp_j_agg_trunc)
-
-    # rm(df_temp_j, df_temp_j_agg, df_diary_sleep, df_ears_sleep)  
     
+    df_epoch_by_epoch_trunc_long <- rbind(df_epoch_by_epoch_trunc_long, df_temp_j_trunc)
+
   }
   
   df_epoch_by_epoch_trunc <- 
     df_epoch_by_epoch_trunc %>% 
     dplyr::mutate(actilife_id = unique_actilife_id_trunc[i])
+  
+  df_epoch_by_epoch_trunc_long <- 
+    df_epoch_by_epoch_trunc_long %>%
+    dplyr::mutate(actilife_id = unique_actilife_id_trunc[i])
  
   df_acc_ears_trunc <- rbind(df_acc_ears_trunc, df_epoch_by_epoch_trunc)
-   
+  
+  df_acc_ears_trunc_long <- rbind(df_acc_ears_trunc_long, df_epoch_by_epoch_trunc_long)
+  
  #  rm(df_temp_i, df_epoch_by_epoch)
   
 }
@@ -1795,6 +1978,38 @@ rm(df_sp_trunc)
   
 # match into analysis dataset
 df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_trunc, by = c("actilife_id", "day_num"))
+
+
+df_acc_ears_trunc_person <-
+  df_acc_ears_trunc_long %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    true_bed_EARS_DIARY_t.p = sum(true_bed_EARS_DIARY_t, na.rm = TRUE), # num hits
+    false_bed_EARS_DIARY_t.p = sum(false_bed_EARS_DIARY_t, na.rm = TRUE), # num false alarms
+    true_rise_EARS_DIARY_t.p = sum(true_rise_EARS_DIARY_t, na.rm = TRUE), # num correct rejects
+    false_rise_EARS_DIARY_t.p = sum(false_rise_EARS_DIARY_t, na.rm = TRUE) # num misses
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    ears.diary_bed_t_sensitivity.p = 
+      true_bed_EARS_DIARY_t.p/(true_bed_EARS_DIARY_t.p + false_bed_EARS_DIARY_t.p),
+    ears.diary_bed_t_specificity.p =
+      true_rise_EARS_DIARY_t.p/(false_rise_EARS_DIARY_t.p + true_rise_EARS_DIARY_t.p),
+    ears.diary_bed_t_accuracy.p = 
+      (true_bed_EARS_DIARY_t.p + true_rise_EARS_DIARY_t.p) / (true_bed_EARS_DIARY_t.p + false_bed_EARS_DIARY_t.p + true_rise_EARS_DIARY_t.p + false_rise_EARS_DIARY_t.p),
+    p_hit_ears_diary_t.p = 
+      (true_bed_EARS_DIARY_t.p) / (true_bed_EARS_DIARY_t.p + false_rise_EARS_DIARY_t.p),
+    p_fa_ears_diary_t.p = 
+      (false_bed_EARS_DIARY_t.p) / (false_bed_EARS_DIARY_t.p + true_rise_EARS_DIARY_t.p),
+    p_miss_ears_diary_t.p =
+      (false_rise_EARS_DIARY_t.p) / (false_rise_EARS_DIARY_t.p + true_bed_EARS_DIARY_t.p),
+    p_cr_ears_diary_t.p = 
+      (true_rise_EARS_DIARY_t.p) / (true_rise_EARS_DIARY_t.p + false_bed_EARS_DIARY_t.p)
+  )
+
+# match into analysis dataset
+df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_trunc_person, by = c("actilife_id"))
+
 
 ```
 
@@ -1832,6 +2047,18 @@ df_acc_ears_supp <- data.frame(
   accuracy <- as.character()
 )
 
+df_acc_ears_supp_long <- data.frame(
+  actilife_id <- as.character(),
+  day_num <- as.character(),
+  minutes <- as.character(),
+  diary_sleep <- as.character(),
+  ears_bed <- as.character(),
+  true_sleep <- as.character(),
+  false_sleep <- as.character(),
+  true_wake <- as.character(),
+  false_wake <- as.character()
+)
+
 for(i in seq_along(unique_actilife_id_supp)){
 
   df_temp_i_supp <- df_analysis_wide2 %>% 
@@ -1854,6 +2081,17 @@ for(i in seq_along(unique_actilife_id_supp)){
     specificity <- as.character(),
     accuracy <- as.character()
   )
+  
+  df_epoch_by_epoch_supp_long <- data.frame(
+    minutes <- as.character(),
+    diary_sleep <- as.character(),
+    ears_bed <- as.character(),
+    day_num <- as.character(),
+    true_sleep <- as.character(),
+    false_sleep <- as.character(),
+    true_wake <- as.character(),
+    false_wake <- as.character()
+    )  
 
 
   for(j in seq_along(unique_day_num_supp)){
@@ -1891,32 +2129,41 @@ df_temp_j_supp <-
 df_temp_j_supp <-
   df_temp_j_supp %>% 
   dplyr::mutate(
-    true_sleep = as.numeric(ifelse((diary_sleep == 1 & ears_bed == 1), 1, 0)),
-    false_sleep = as.numeric(ifelse((is.na(diary_sleep) & ears_bed == 1), 1, 0)),
+    true_sleep = as.numeric(ifelse((diary_sleep == 1 & ears_bed == 1 & !is.na(diary_sleep) & !is.na(ears_bed)), 1, 0)),
+    false_sleep = as.numeric(ifelse((is.na(diary_sleep) & ears_bed == 1 & !is.na(ears_bed)), 1, 0)),
     true_wake = as.numeric(ifelse((is.na(diary_sleep) & is.na(ears_bed)), 1, 0)),
-    false_wake = as.numeric(ifelse((diary_sleep == 1 & is.na(ears_bed)), 1, 0))
+    false_wake = as.numeric(ifelse((diary_sleep == 1 & is.na(ears_bed) & !is.na(diary_sleep)), 1, 0))
     )
 
          
 df_temp_j_agg_supp <- df_temp_j_supp %>% 
   dplyr::group_by(day_num) %>% 
   dplyr::summarise(
-    true_sleep = sum(true_sleep, na.rm = TRUE),
-    false_sleep = sum(false_sleep, na.rm = TRUE),
-    true_wake = sum(true_wake, na.rm = TRUE),
-    false_wake = sum(false_wake, na.rm = TRUE)
+    true_sleep = sum(true_sleep, na.rm = TRUE), # num hits
+    false_sleep = sum(false_sleep, na.rm = TRUE), # num false alarms
+    true_wake = sum(true_wake, na.rm = TRUE), # num correct rejects
+    false_wake = sum(false_wake, na.rm = TRUE) # num misses
   ) %>% 
   dplyr::ungroup() %>% 
   dplyr::mutate(
     ears.diary_sleep_sensitivity = true_sleep/(true_sleep + false_sleep),
     ears.diary_sleep_specificity = true_wake/(false_wake + true_wake),
     ears.diary_sleep_accuracy = 
-      (true_sleep + true_wake) / (true_sleep + false_sleep + true_wake + false_wake)
+      (true_sleep + true_wake) / (true_sleep + false_sleep + true_wake + false_wake),
+    p_hit_ears.diary_sleep = 
+      (true_sleep) / (true_sleep + false_wake),
+    p_fa_ears.diary_sleep = 
+      (false_sleep) / (false_sleep + true_sleep),
+    p_miss_ears.diary_sleep =
+      (false_wake) / (false_wake + true_sleep),
+    p_cr_ears.diary_sleep = 
+      (true_wake) / (true_wake + false_sleep)  
     )
-
 
       
     df_epoch_by_epoch_supp <- rbind(df_epoch_by_epoch_supp, df_temp_j_agg_supp)
+    
+    df_epoch_by_epoch_supp_long <- rbind(df_epoch_by_epoch_supp_long, df_temp_j_supp)
 
     # rm(df_temp_j, df_temp_j_agg, df_diary_sleep, df_ears_sleep)  
     
@@ -1925,9 +2172,14 @@ df_temp_j_agg_supp <- df_temp_j_supp %>%
   df_epoch_by_epoch_supp <- 
     df_epoch_by_epoch_supp %>% 
     dplyr::mutate(actilife_id = unique_actilife_id_supp[i])
- 
+
+  df_epoch_by_epoch_supp_long <- 
+    df_epoch_by_epoch_supp_long %>% 
+    dplyr::mutate(actilife_id = unique_actilife_id_supp[i])
+    
   df_acc_ears_supp <- rbind(df_acc_ears_supp, df_epoch_by_epoch_supp)
-   
+  
+  df_acc_ears_supp_long <- rbind(df_acc_ears_supp_long, df_epoch_by_epoch_supp_long) 
  #  rm(df_temp_i, df_epoch_by_epoch)
   
 }
@@ -1936,6 +2188,37 @@ rm(df_sp_supp)
   
 # match into analysis dataset
 df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_supp, by = c("actilife_id", "day_num"))
+
+df_acc_ears_supp_person <-
+  df_acc_ears_supp_long %>% 
+  dplyr::group_by(actilife_id) %>% 
+  dplyr::summarise(
+    true_sleep.p = sum(true_sleep, na.rm = TRUE), # num hits
+    false_sleep.p = sum(false_sleep, na.rm = TRUE), # num false alarms
+    true_wake.p = sum(true_wake, na.rm = TRUE), # num correct rejects
+    false_wake.p = sum(false_wake, na.rm = TRUE) # num misses
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    ears.diary_sleep_sensitivity.p = 
+      true_sleep.p/(true_sleep.p + false_sleep.p),
+    ears.diary_sleep_specificity.p =
+      true_wake.p/(false_wake.p + true_wake.p),
+    ears.diary_sleep_accuracy.p = 
+      (true_sleep.p + true_wake.p) / (true_sleep.p + false_sleep.p + true_wake.p + false_wake.p),
+    p_hit_ears_diary_sleep.p = 
+      (true_sleep.p) / (true_sleep.p + false_wake.p),
+    p_fa_ears_diary_sleep.p = 
+      (false_sleep.p) / (false_sleep.p + true_wake.p),
+    p_miss_ears_diary_sleep.p =
+      (false_wake.p) / (false_wake.p + true_sleep.p),
+    p_cr_ears_diary_sleep.p = 
+      (true_wake.p) / (true_wake.p + false_sleep.p)
+  )
+
+# match into analysis dataset
+df_analysis_wide2 <- df_analysis_wide2 %>% left_join(df_acc_ears_supp_person, by = c("actilife_id"))
+
 
 ```
 
